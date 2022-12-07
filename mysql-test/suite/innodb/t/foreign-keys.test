@@ -282,3 +282,17 @@ DELETE FROM parent;
 
 DROP TABLE child;
 DROP TABLE parent;
+
+--echo #
+--echo # MDEV-30103 FK constraint fails upon referenced table eviction
+--echo #
+call mtr.add_suppression("\\[Warning\\] InnoDB: In ALTER TABLE `test`\\.`t1` has or is referenced in foreign key constraints which are not compatible with the new table definition.");
+
+CREATE TABLE t1 ( pk integer auto_increment, primary key (pk)) ENGINE=innodb ;
+SET SESSION FOREIGN_KEY_CHECKS = OFF ;
+ALTER TABLE t1 ADD CONSTRAINT FOREIGN KEY (pk) REFERENCES t1 (pk), ALGORITHM=COPY ;
+INSERT IGNORE INTO t1 (pk) VALUES (NULL) ;
+SET SESSION FOREIGN_KEY_CHECKS = ON ;
+--error ER_NO_REFERENCED_ROW_2
+INSERT INTO t1 (pk) VALUES (NULL) ;
+DROP TABLE t1;

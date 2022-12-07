@@ -75,3 +75,97 @@ DROP TABLE t1, t2;
 #
 # End of 10.1 tests
 #
+
+--echo #
+--echo # MDEV-30103 FK constraint fails upon referenced table eviction
+--echo #
+create table t1 (a int, key(a), b int) engine=innodb;
+create table t2 (a int references t1(a), key(a), b int) engine=innodb;
+insert t1 values (1, 1);
+set @save_evict_tables_debug = @@GLOBAL.innodb_evict_tables_on_commit_debug;
+set global innodb_evict_tables_on_commit_debug=1;
+
+begin;
+insert t1 values (20000, 1);
+
+connect bug, localhost, root;
+set debug_sync="lock_fk_value_read signal read wait_for go";
+send
+insert t2 values(1,1);
+
+connect purge, localhost, root;
+FLUSH TABLES;
+
+connection default;
+set debug_sync="now wait_for read";
+commit;
+set debug_sync="now signal go";
+connection bug;
+reap;
+connection default;
+
+--echo #
+--echo # Discard and load new table.
+--echo #
+begin;
+insert t1 values (30000, 1);
+
+connection bug;
+set debug_sync="lock_fk_value_read signal read wait_for go";
+send
+insert t2 values(1,1);
+
+connection purge;
+FLUSH TABLES;
+
+connection default;
+set debug_sync="now wait_for read";
+commit;
+--echo # Load new table
+select * from t1;
+set debug_sync="now signal go";
+connection bug;
+reap;
+connection default;
+
+--echo #
+--echo # Try to discard table after unsuccessful lock and load.
+--echo #
+begin;
+insert t1 values (40000, 1);
+
+connection bug;
+set debug_sync="lock_fk_value_read   signal read wait_for go1";
+set debug_sync="lock_fk_table_loaded signal load wait_for go2";
+send
+insert t2 values(1,1);
+
+connection purge;
+FLUSH TABLES;
+
+connection default;
+set debug_sync="now wait_for read";
+commit;
+set debug_sync="now signal go1 wait_for load";
+begin;
+insert t1 values (50000, 1);
+connection purge;
+FLUSH TABLES;
+connection default;
+commit;
+set debug_sync="now signal go2";
+
+--connection bug
+reap;
+--connection default
+
+--echo # Cleanup
+set debug_sync= reset;
+set global innodb_evict_tables_on_commit_debug=@save_evict_tables_debug;
+drop table t2, t1;
+disconnect bug;
+disconnect purge;
+
+#
+# End of 10.6 tests
+#

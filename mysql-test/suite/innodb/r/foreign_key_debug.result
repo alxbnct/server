@@ -57,3 +57,76 @@ SET debug_sync='reset';
 SHOW OPEN TABLES FROM test;
 Database	Table	In_use	Name_locked
 DROP TABLE t1, t2;
+#
+# MDEV-30103 FK constraint fails upon referenced table eviction
+#
+create table t1 (a int, key(a), b int) engine=innodb;
+create table t2 (a int references t1(a), key(a), b int) engine=innodb;
+insert t1 values (1, 1);
+set @save_evict_tables_debug = @@GLOBAL.innodb_evict_tables_on_commit_debug;
+set global innodb_evict_tables_on_commit_debug=1;
+begin;
+insert t1 values (20000, 1);
+connect bug, localhost, root;
+set debug_sync="lock_fk_value_read signal read wait_for go";
+insert t2 values(1,1);
+connect purge, localhost, root;
+FLUSH TABLES;
+connection default;
+set debug_sync="now wait_for read";
+commit;
+set debug_sync="now signal go";
+connection bug;
+connection default;
+#
+# Discard and load new table.
+#
+begin;
+insert t1 values (30000, 1);
+connection bug;
+set debug_sync="lock_fk_value_read signal read wait_for go";
+insert t2 values(1,1);
+connection purge;
+FLUSH TABLES;
+connection default;
+set debug_sync="now wait_for read";
+commit;
+# Load new table
+select * from t1;
+a	b
+1	1
+20000	1
+30000	1
+set debug_sync="now signal go";
+connection bug;
+connection default;
+#
+# Try to discard table after unsuccessful lock and load.
+#
+begin;
+insert t1 values (40000, 1);
+connection bug;
+set debug_sync="lock_fk_value_read   signal read wait_for go1";
+set debug_sync="lock_fk_table_loaded signal load wait_for go2";
+insert t2 values(1,1);
+connection purge;
+FLUSH TABLES;
+connection default;
+set debug_sync="now wait_for read";
+commit;
+set debug_sync="now signal go1 wait_for load";
+begin;
+insert t1 values (50000, 1);
+connection purge;
+FLUSH TABLES;
+connection default;
+commit;
+set debug_sync="now signal go2";
+connection bug;
+connection default;
+# Cleanup
+set debug_sync= reset;
+set global innodb_evict_tables_on_commit_debug=@save_evict_tables_debug;
+drop table t2, t1;
+disconnect bug;
+disconnect purge;

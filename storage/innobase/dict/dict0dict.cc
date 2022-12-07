@@ -1047,6 +1047,37 @@ ATTRIBUTE_NOINLINE void dict_sys_t::unfreeze()
 }
 #endif /* UNIV_PFS_RWLOCK */
 
+/**
+  Loads and returns a table data dictionary, checks its correctness and
+  increases its reference count. dict_sys should be already locked.
+ */
+dict_table_t*
+dict_table_load(const span<const char> &name, dict_err_ignore_t ignore_err)
+{
+  DBUG_ENTER("dict_table_load");
+  ut_ad(dict_sys.locked());
+
+  dict_table_t *table= dict_sys.load_table(name, ignore_err);
+
+  if (table)
+  {
+    ut_ad(table->cached);
+    if (!(ignore_err & ~DICT_ERR_IGNORE_FK_NOKEY) &&
+        !table->is_readable() && table->corrupted)
+    {
+      ib::error() << "Table " << table->name
+                  << " is corrupted. Please drop the table and recreate.";
+
+      DBUG_RETURN(nullptr);
+    }
+
+    table->acquire();
+  }
+
+  ut_ad(dict_lru_validate());
+  DBUG_RETURN(table);
+}
+
 /**********************************************************************//**
 Returns a table object and increments its open handle count.
 NOTE! This is a high-level function to be used mainly from outside the
@@ -1092,25 +1123,8 @@ dict_table_open_on_name(
     dict_sys.lock(SRW_LOCK_CALL);
   }
 
-  table= dict_sys.load_table(name, ignore_err);
+  table= dict_table_load(name, ignore_err);
 
-  if (table)
-  {
-    ut_ad(table->cached);
-    if (!(ignore_err & ~DICT_ERR_IGNORE_FK_NOKEY) &&
-        !table->is_readable() && table->corrupted)
-    {
-      ib::error() << "Table " << table->name
-                  << " is corrupted. Please drop the table and recreate.";
-      if (!dict_locked)
-        dict_sys.unlock();
-      DBUG_RETURN(nullptr);
-    }
-
-    table->acquire();
-  }
-
-  ut_ad(dict_lru_validate());
   if (!dict_locked)
     dict_sys.unlock();
 
@@ -1872,7 +1886,8 @@ void dict_sys_t::remove(dict_table_t* table, bool lru, bool keep)
 	else {
 		for (auto *fk: table->foreign_set) {
 			if (fk->referenced_table) {
-				fk->foreign_table = nullptr;
+				fk->foreign_table.store(nullptr,
+						     std::memory_order_seq_cst);
 				fk->foreign_index = nullptr;
 			} else {
 				dict_foreign_free(fk);
@@ -1883,7 +1898,8 @@ void dict_sys_t::remove(dict_table_t* table, bool lru, bool keep)
 	/* Reset table field in referencing constraints */
 	for (auto *fk: table->referenced_set) {
 		if (fk->foreign_table) {
-			fk->referenced_table = nullptr;
+			fk->referenced_table.store(nullptr,
+						   std::memory_order_seq_cst);
 			fk->referenced_index = nullptr;
 		} else {
 			dict_foreign_free(fk);
@@ -3000,7 +3016,8 @@ dict_foreign_add_to_cache(
 			DBUG_RETURN(DB_CANNOT_ADD_CONSTRAINT);
 		}
 
-		for_in_cache->referenced_table = ref_table;
+		for_in_cache->referenced_table.store(ref_table,
+						     std::memory_order_release);
 		for_in_cache->referenced_index = index;
 
 		std::pair<dict_foreign_set::iterator, bool>	ret
@@ -3051,7 +3068,8 @@ dict_foreign_add_to_cache(
 			DBUG_RETURN(DB_CANNOT_ADD_CONSTRAINT);
 		}
 
-		for_in_cache->foreign_table = for_table;
+		for_in_cache->foreign_table.store(for_table,
+						  std::memory_order_release);
 		for_in_cache->foreign_index = index;
 
 		std::pair<dict_foreign_set::iterator, bool>	ret

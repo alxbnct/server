@@ -247,3 +247,15 @@ INSERT INTO parent (a) VALUES (1);
 DELETE FROM parent;
 DROP TABLE child;
 DROP TABLE parent;
+#
+# MDEV-30103 FK constraint fails upon referenced table eviction
+#
+call mtr.add_suppression("\\[Warning\\] InnoDB: In ALTER TABLE `test`\\.`t1` has or is referenced in foreign key constraints which are not compatible with the new table definition.");
+CREATE TABLE t1 ( pk integer auto_increment, primary key (pk)) ENGINE=innodb ;
+SET SESSION FOREIGN_KEY_CHECKS = OFF ;
+ALTER TABLE t1 ADD CONSTRAINT FOREIGN KEY (pk) REFERENCES t1 (pk), ALGORITHM=COPY ;
+INSERT IGNORE INTO t1 (pk) VALUES (NULL) ;
+SET SESSION FOREIGN_KEY_CHECKS = ON ;
+INSERT INTO t1 (pk) VALUES (NULL) ;
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (`test`.`t1`, CONSTRAINT `t1_ibfk_1` FOREIGN KEY (`pk`) REFERENCES `t1` (`pk`))
+DROP TABLE t1;

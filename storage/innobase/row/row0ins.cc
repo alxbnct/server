@@ -1444,6 +1444,64 @@ row_ins_set_exclusive_rec_lock(
 	return(err);
 }
 
+dberr_t lock_fk_table(const Atomic_relaxed<dict_table_t*> *table,
+		      const char *name, que_thr_t *thr)
+{
+  dberr_t err= DB_DEADLOCK;
+  dict_table_t *check_table= table->load(std::memory_order_acquire);
+  DEBUG_SYNC_C("lock_fk_value_read");
+  if (UNIV_LIKELY(check_table != nullptr))
+  {
+    err= lock_table(check_table, table, LOCK_IS, thr);
+    if (err == DB_SUCCESS)
+      return DB_SUCCESS; // Optimistic scenario
+  }
+
+  if (UNIV_UNLIKELY(err == DB_DEADLOCK))
+  {
+    /*
+      No table, or it was changed just before the lock.It could be a real
+      deadlock, but we can't distinguish these states outside lock_table.
+
+      We can't detect it by checking if check_table is changed.
+      i.e. if (check_table != *table)
+      because it could be reopened to the same address after it was evicted
+      and lock_table returned DB_DEADLOCK.
+    */
+    dict_sys.lock(SRW_LOCK_CALL);
+    dict_table_t *new_table= table->load();
+    if (new_table)
+      new_table->acquire();
+    else
+    {
+      new_table= dict_table_load({name, strlen(name)}, DICT_ERR_IGNORE_NONE);
+
+      if (UNIV_UNLIKELY(new_table && !table->load()))
+      {
+        // Ill-formed foreign key, will be handled outside.
+        // Table was acquired in dict_table_load, we should release it back.
+        // Note: we could have just loaded a fresh new instance. If so, it
+        // should be released gracefully, i.e. stats should be deinited.
+        dict_table_close(new_table, true);
+        dict_sys.unlock();
+        return DB_TABLE_NOT_FOUND;
+      }
+    }
+    dict_sys.unlock();
+
+    if (!new_table)
+      return DB_TABLE_NOT_FOUND; // Table may've been dropeed,
+    DEBUG_SYNC_C("lock_fk_table_loaded");
+
+    err= lock_table(new_table, table, LOCK_IS, thr);
+
+    dict_table_close(new_table);
+
+    ut_ad(new_table == table->load(std::memory_order_release));
+  }
+  return err;
+}
+
 /***************************************************************//**
 Checks if foreign key constraint fails for an index entry. Sets shared locks
 which lock either the success or the failure of the constraint. NOTE that
@@ -1552,16 +1610,16 @@ row_ins_check_foreign_constraint(
 	dberr_t err = DB_SUCCESS;
 
 	{
-		Atomic_relaxed<dict_table_t*>& fktable = check_ref
-			? foreign->referenced_table : foreign->foreign_table;
-		check_table = fktable;
-		if (check_table) {
-			err = lock_table(check_table, &fktable, LOCK_IS, thr);
-			if (err != DB_SUCCESS) {
-				goto do_possible_lock_wait;
-			}
-		}
-		check_table = fktable;
+		const Atomic_relaxed<dict_table_t*> *fktable = check_ref
+			? &foreign->referenced_table : &foreign->foreign_table;
+		const char *name= check_ref ?
+				  foreign->referenced_table_name_lookup:
+				  foreign->foreign_table_name_lookup;
+
+		err = lock_fk_table(fktable, name, thr);
+		if (err != DB_SUCCESS && err != DB_TABLE_NOT_FOUND)
+			goto do_possible_lock_wait;
+		check_table= *fktable;
 	}
 
 	check_index = check_ref
@@ -1939,24 +1997,8 @@ row_ins_check_foreign_constraints(
 
 			}
 
-			dict_table_t*	ref_table = NULL;
-			dict_table_t*	referenced_table
-						= foreign->referenced_table;
-
-			DEBUG_SYNC_C("row_ins_check_fk_ref_table_loaded");
-			if (referenced_table == NULL) {
-
-				ref_table = dict_table_open_on_name(
-					foreign->referenced_table_name_lookup,
-					false, DICT_ERR_IGNORE_NONE);
-			}
-
 			err = row_ins_check_foreign_constraint(
 				TRUE, foreign, table, ref_tuple, NULL, thr);
-
-			if (ref_table) {
-				dict_table_close(ref_table);
-			}
 		}
 	}
 

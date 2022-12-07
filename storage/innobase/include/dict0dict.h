@@ -451,6 +451,11 @@ dict_foreign_parse_drop_constraints(
 	const char***	constraints_to_drop)	/*!< out: id's of the
 						constraints to drop */
 	MY_ATTRIBUTE((nonnull, warn_unused_result));
+/** Loads and returns a table data dictionary, checks its correctness and
+increases its reference count. dict_sys should be already locked.
+*/
+dict_table_t*
+dict_table_load(const span<const char> &name, dict_err_ignore_t ignore_err);
 /**********************************************************************//**
 Returns a table object and increments its open handle count.
 NOTE! This is a high-level function to be used mainly from outside the

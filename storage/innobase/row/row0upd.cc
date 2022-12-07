@@ -350,22 +350,8 @@ wsrep_row_upd_check_foreign_constraints(
 				entry, index, node->update,
 				foreign->n_fields))) {
 
-			dict_table_t *opened = nullptr;
-
-			if (!foreign->referenced_table) {
-				foreign->referenced_table =
-					dict_table_open_on_name(
-					  foreign->referenced_table_name_lookup,
-					  false, DICT_ERR_IGNORE_NONE);
-				opened = foreign->referenced_table;
-			}
-
 			err = row_ins_check_foreign_constraint(
 				TRUE, foreign, table, entry, NULL, thr);
-
-			if (opened) {
-				dict_table_close(opened);
-			}
 
 			if (err != DB_SUCCESS) {
 				goto func_exit;

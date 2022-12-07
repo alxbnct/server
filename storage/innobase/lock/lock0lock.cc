@@ -3585,7 +3585,7 @@ dberr_t lock_table(dict_table_t *table,
 #endif
   lock_sys.rd_lock(SRW_LOCK_CALL);
   dberr_t err;
-  if (fktable != nullptr && *fktable != table)
+  if (fktable != nullptr && fktable->load(std::memory_order_acquire) != table)
     err= DB_DEADLOCK;
   else
   {
