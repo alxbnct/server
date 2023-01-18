@@ -57,9 +57,8 @@ inline size_t dict_get_db_name_len(const char *name)
 /*********************************************************************//**
 Open a table from its database and table name, this is currently used by
 foreign constraint parser to get the referenced table.
-@return complete table name with database and table name, allocated from
-heap memory passed in */
-char*
+@return table object found by database and table name */
+dict_table_t*
 dict_get_referenced_table(
 /*======================*/
 	const char*	name,		/*!< in: foreign key table name */
@@ -67,7 +66,9 @@ dict_get_referenced_table(
 	ulint		database_name_len,/*!< in: db name length */
 	const char*	table_name,	/*!< in: table name */
 	ulint		table_name_len,	/*!< in: table name length */
-	dict_table_t**	table,		/*!< out: table object or NULL */
+	char**	       full_name,	  /*!< out: complete table name with
+					  database and table name, allocated
+					  from heap memory passed in */
 	mem_heap_t*	heap,		/*!< in: heap memory */
 	CHARSET_INFO*	from_cs);	/*!< in: table name charset */
 /*********************************************************************//**

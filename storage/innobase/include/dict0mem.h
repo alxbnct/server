@@ -1531,13 +1531,15 @@ struct dict_foreign_t{
 	char*		foreign_table_name;/*!< foreign table name */
 	char*		foreign_table_name_lookup;
 				/*!< foreign table name used for dict lookup */
-	dict_table_t*	foreign_table;	/*!< table where the foreign key is */
+	Atomic_relaxed<dict_table_t*>
+			foreign_table;	/*!< table where the foreign key is */
 	const char**	foreign_col_names;/*!< names of the columns in the
 					foreign key */
 	char*		referenced_table_name;/*!< referenced table name */
 	char*		referenced_table_name_lookup;
 				/*!< referenced table name for dict lookup*/
-	dict_table_t*	referenced_table;/*!< table where the referenced key
+	Atomic_relaxed<dict_table_t*>
+			referenced_table;/*!< table where the referenced key
 					is */
 	const char**	referenced_col_names;/*!< names of the referenced
 					columns in the referenced table */

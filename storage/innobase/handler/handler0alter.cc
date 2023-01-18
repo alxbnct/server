@@ -3267,11 +3267,11 @@ innobase_get_foreign_key_info(
 
 		dict_sys.lock(SRW_LOCK_CALL);
 
-		referenced_table_name = dict_get_referenced_table(
+		referenced_table = dict_get_referenced_table(
 			table->name.m_name,
 			LEX_STRING_WITH_LEN(fk_key->ref_db),
 			LEX_STRING_WITH_LEN(fk_key->ref_table),
-			&referenced_table,
+			&referenced_table_name,
 			add_fk[num_fk]->heap, cs);
 
 		/* Test the case when referenced_table failed to

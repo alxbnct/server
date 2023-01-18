@@ -3294,16 +3294,17 @@ convert_id:
 /*********************************************************************//**
 Open a table from its database and table name, this is currently used by
 foreign constraint parser to get the referenced table.
-@return complete table name with database and table name, allocated from
-heap memory passed in */
-char*
+@return table object found by database and table name */
+dict_table_t*
 dict_get_referenced_table(
 	const char*    name,		  /*!< in: foreign key table name */
 	const char*    database_name,	  /*!< in: table db name */
 	ulint	       database_name_len, /*!< in: db name length */
 	const char*    table_name,	  /*!< in: table name */
 	ulint	       table_name_len,	  /*!< in: table name length */
-	dict_table_t** table,		  /*!< out: table object or NULL */
+	char**	       full_name,	  /*!< out: complete table name with
+					  database and table name, allocated
+					  from heap memory passed in */
 	mem_heap_t*    heap,		  /*!< in/out: heap memory */
 	CHARSET_INFO*  from_cs)		  /*!< in: table name charset */
 {
@@ -3362,25 +3363,22 @@ dict_get_referenced_table(
 	/* Values;  0 = Store and compare as given; case sensitive
 	            1 = Store and compare in lower; case insensitive
 	            2 = Store as given, compare in lower; case semi-sensitive */
-	if (lower_case_table_names == 2) {
+#ifndef _WIN32
+	if (lower_case_table_names != 0)
+#endif
+	{
 		innobase_casedn_str(ref);
-		*table = dict_sys.load_table({ref, len});
+	}
+
+	dict_table_t *table = dict_sys.load_table({ref, len});
+	if (lower_case_table_names == 2) {
 		memcpy(ref, database_name, database_name_len);
 		ref[database_name_len] = '/';
 		memcpy(ref + database_name_len + 1, table_name, table_name_len + 1);
-
-	} else {
-#ifndef _WIN32
-		if (lower_case_table_names == 1) {
-			innobase_casedn_str(ref);
-		}
-#else
-		innobase_casedn_str(ref);
-#endif /* !_WIN32 */
-		*table = dict_sys.load_table({ref, len});
 	}
 
-	return(ref);
+	*full_name = ref;
+	return table;
 }
 
 /*********************************************************************//**

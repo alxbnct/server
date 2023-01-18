@@ -3556,7 +3556,8 @@ static dberr_t lock_table_wsrep(dict_table_t *table, lock_mode mode,
 @retval DB_SUCCESS    if the lock was acquired
 @retval DB_DEADLOCK   if a deadlock occurred, or fktable && *fktable != table
 @retval DB_LOCK_WAIT  if lock_wait() must be invoked */
-dberr_t lock_table(dict_table_t *table, dict_table_t *const*fktable,
+dberr_t lock_table(dict_table_t *table,
+                   const Atomic_relaxed<dict_table_t*> *fktable,
                    lock_mode mode, que_thr_t *thr)
 {
   ut_ad(table);

@@ -999,8 +999,6 @@ row_ins_foreign_check_on_constraint(
 {
 	upd_node_t*	node;
 	upd_node_t*	cascade;
-	dict_table_t*const*const fktable = &foreign->foreign_table;
-	dict_table_t*	table = *fktable;
 	dict_index_t*	index;
 	dict_index_t*	clust_index;
 	dtuple_t*	ref;
@@ -1017,6 +1015,7 @@ row_ins_foreign_check_on_constraint(
 
 	trx = thr_get_trx(thr);
 
+	dict_table_t*	table = foreign->foreign_table.load();
 	/* Since we are going to delete or update a row, we have to invalidate
 	the MySQL query cache for table. A deadlock of threads is not possible
 	here because the caller of this function does not hold any latches with
@@ -1172,7 +1171,7 @@ row_ins_foreign_check_on_constraint(
 
 	/* Set an X-lock on the row to delete or update in the child table */
 
-	err = lock_table(table, fktable, LOCK_IX, thr);
+	err = lock_table(table, &foreign->foreign_table, LOCK_IX, thr);
 
 	if (err == DB_SUCCESS) {
 		/* Here it suffices to use a LOCK_REC_NOT_GAP type lock;
@@ -1553,7 +1552,7 @@ row_ins_check_foreign_constraint(
 	dberr_t err = DB_SUCCESS;
 
 	{
-		dict_table_t*& fktable = check_ref
+		Atomic_relaxed<dict_table_t*>& fktable = check_ref
 			? foreign->referenced_table : foreign->foreign_table;
 		check_table = fktable;
 		if (check_table) {

@@ -12315,13 +12315,13 @@ create_table_info_t::create_foreign_keys()
 	enum_sql_command sqlcom = enum_sql_command(thd_sql_command(m_thd));
 
 	if (sqlcom == SQLCOM_ALTER_TABLE) {
-		dict_table_t* table_to_alter;
 		mem_heap_t*   heap = mem_heap_create(10000);
 		ulint	      highest_id_so_far;
-		char*	      n = dict_get_referenced_table(
+		char*	      n;
+		dict_table_t* table_to_alter = dict_get_referenced_table(
 			name, LEX_STRING_WITH_LEN(m_form->s->db),
 			LEX_STRING_WITH_LEN(m_form->s->table_name),
-			&table_to_alter, heap, cs);
+			&n, heap, cs);
 
 		/* Starting from 4.0.18 and 4.1.2, we generate foreign key id's
 		in the format databasename/tablename_ibfk_[number], where
@@ -12509,10 +12509,10 @@ create_table_info_t::create_foreign_keys()
 		memcpy(foreign->foreign_col_names, column_names,
 		       i * sizeof(void*));
 
-		foreign->referenced_table_name = dict_get_referenced_table(
+		foreign->referenced_table = dict_get_referenced_table(
 			name, LEX_STRING_WITH_LEN(fk->ref_db),
 			LEX_STRING_WITH_LEN(fk->ref_table),
-			&foreign->referenced_table, foreign->heap, cs);
+			&foreign->referenced_table_name, foreign->heap, cs);
 
 		if (!foreign->referenced_table_name) {
 			return (DB_OUT_OF_MEMORY);
