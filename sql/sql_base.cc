@@ -4647,6 +4647,58 @@ bool DML_prelocking_strategy::handle_routine(THD *thd,
   return FALSE;
 }
 
+#include <string>
+#include <unordered_map>
+#include <string_view>
+#include <cstring>
+#include <functional>
+
+#define A 54059 /* a prime */
+#define B 76963 /* another prime */
+#define C 86969 /* yet another prime */
+#define FIRSTH 37 /* also prime */
+
+class hash
+{
+public:
+  void insert(const char*);
+  void erase(const char*);
+  bool contains(const char*);
+private:
+  int hash_function(const char*);
+private:
+  const char **arr = new const char*[20];
+  unsigned size{0};
+};
+
+int hash::hash_function(const char *s) {
+  unsigned h= FIRSTH;
+  while (*s)
+  {
+    h= (h * A) ^ (s[0] * B);
+    s++;
+  }
+  return h; // or return h % C;
+}
+
+void hash::insert(const char* s) 
+{ 
+  if (size >= 20)
+  {
+      //TODO
+  }
+
+  arr[hash_function(s)]= s;
+}
+
+bool hash::contains(const char* s) 
+{
+  if (!arr[hash_function(s)])
+    return true;
+  return false;
+}
+
+hash hasher;
 
 /*
   @note this can be changed to use a hash, instead of scanning the linked
@@ -4655,7 +4707,7 @@ bool DML_prelocking_strategy::handle_routine(THD *thd,
 TABLE_LIST *find_fk_prelocked_table(TABLE_LIST *tl, LEX_CSTRING *db,
                                     LEX_CSTRING *table, thr_lock_type lock_type)
 {
-  for (; tl; tl= tl->next_global )
+  for (; tl; tl= tl->next_global)   
   {
     if (tl->lock_type >= lock_type &&
         tl->prelocking_placeholder == TABLE_LIST::PRELOCK_FK &&
@@ -4664,6 +4716,13 @@ TABLE_LIST *find_fk_prelocked_table(TABLE_LIST *tl, LEX_CSTRING *db,
       return tl;
   }
   return NULL;
+}
+
+TABLE_LIST *find_fk_prelocked_table_using_hash(THD *thd, TABLE_LIST *tl, LEX_CSTRING *db,
+                                    LEX_CSTRING *table,
+                                    thr_lock_type lock_type)
+{
+  return thd->pr_table_hash.find(tl, db->str, table->str);
 }
 
 
@@ -4778,6 +4837,9 @@ prepare_fk_prelocking_list(THD *thd, Query_tables_list *prelocking_ctx,
     TABLE_LIST *tl= find_fk_prelocked_table(prelocking_ctx->query_tables,
                                             fk->foreign_db, fk->foreign_table,
                                             lock_type);
+    TABLE_LIST *test_tl= find_fk_prelocked_table_using_hash(
+        thd, prelocking_ctx->query_tables, fk->foreign_db,
+                                fk->foreign_table, lock_type);
     if (tl == NULL)
     {
       tl= (TABLE_LIST *) thd->alloc(sizeof(TABLE_LIST));
@@ -4788,6 +4850,10 @@ prepare_fk_prelocking_list(THD *thd, Query_tables_list *prelocking_ctx,
           table_list->belong_to_view, op,
           &prelocking_ctx->query_tables_last,
           table_list->for_insert_data);
+
+      thd->pr_table_hash.insert(tl);
+      auto t=
+          thd->pr_table_hash.find(tl, tl->get_db_name(), tl->get_table_name());
     }
 
     fk->table_list= tl;

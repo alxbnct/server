@@ -2586,6 +2586,133 @@ struct thd_async_state
   }
 };
 
+#include <string.h>
+
+class prelocked_table_hash
+{
+public:
+  prelocked_table_hash()
+  {
+    capacity = 137;
+    hash_array= new TABLE_LIST *[capacity];
+    size = 0;
+
+    for (uint32 i = 0; i < capacity; i++)
+    {
+      hash_array[i] = nullptr;
+    }
+  }
+
+  ~prelocked_table_hash() 
+  {
+    for (uint32 i = 0; i < capacity; i++) 
+    {
+      delete hash_array[i];
+    }
+
+    delete[] hash_array;
+  }
+
+private:
+  bool insert_helper(TABLE_LIST *tl)
+  {
+    auto key= tl->mdl_request.key.hash_value();
+    auto k= key % capacity;
+
+    for (int i = 1; i < capacity; i++)
+    {
+      if (hash_array[key % capacity] == nullptr)
+      {
+        hash_array[key % capacity]= tl;
+        size++;
+        return true;
+      }
+      else if (hash_array[key % capacity]->get_table_name() != tl->get_table_name() || 
+          hash_array[key % capacity]->get_db_name() != tl->get_db_name())
+      {
+        key= tl->mdl_request.key.hash_value() + i;
+      }
+      else
+      {
+          return false;
+      }
+    }
+
+    return false;
+  };
+
+  void rehash(int32 _capacity) {
+    int32 past_capacity = capacity;
+    capacity= _capacity;
+    auto temp_hash_array= hash_array;
+    hash_array= new TABLE_LIST* [capacity];
+
+    for (uint32 i= 0; i < capacity; i++)
+    {
+      hash_array[i]= nullptr;
+    }
+
+    for (uint32 i= 0; i < past_capacity; i++)
+    {
+      if (temp_hash_array[i])
+      {
+        insert(temp_hash_array[i]);
+      }
+    }
+
+    for (uint32 i= 0; i < past_capacity; i++)
+    {
+       delete temp_hash_array[i];
+    }
+
+    delete[] temp_hash_array;
+  }
+    
+public:
+  bool insert(TABLE_LIST* tl) 
+  { 
+    if (static_cast<float>(size + 1) / static_cast<float>(capacity) >
+        load_factor)
+      rehash(2 * capacity);
+
+    return insert_helper(tl);
+  };
+
+  TABLE_LIST* find(TABLE_LIST *tl, const char *db_name, const char *table_name)
+  {
+
+    tl->mdl_request.key.mdl_key_init(MDL_key::TABLE, db_name, table_name);
+    auto key= tl->mdl_request.key.hash_value();
+
+    for (uint32 i= 1; i < capacity; i++)
+    {
+      if (hash_array[key % capacity] != nullptr)
+      {
+        if (!strcmp(hash_array[key % capacity]->get_table_name(), table_name) &&
+            !strcmp(hash_array[key % capacity]->get_db_name(), db_name))
+          return hash_array[key % capacity];
+        else
+        {
+          key= tl->mdl_request.key.hash_value() + i;
+        }
+      }
+      else
+      {
+        return nullptr;
+      }
+    }
+
+    //????
+    return nullptr;
+  };
+
+
+private:
+  uint32 capacity;
+  float load_factor= 0.7f;
+  TABLE_LIST **hash_array;
+  uint32 size;
+};
 
 /**
   @class THD
@@ -2700,6 +2827,10 @@ public:
     - Also ensures that THD is not deleted while mutex is hold
   */
   mutable mysql_mutex_t LOCK_thd_kill;
+
+  prelocked_table_hash pr_table_hash;
+
+
 
   /* all prepared statements and cursors of this connection */
   Statement_map stmt_map;

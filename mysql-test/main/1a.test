@@ -1,0 +1,42 @@
+--source include/have_innodb.inc
+
+CREATE TABLE Customers
+(
+    Id INT PRIMARY KEY AUTO_INCREMENT,
+    Age INT
+) engine=InnoDB;
+
+let $i=1;
+while($i < 5) {
+    EVAL CREATE TABLE t_$i
+  (
+    Id INT PRIMARY KEY AUTO_INCREMENT,
+    CustomerId$i INT,
+        Sum INT,
+        FOREIGN KEY (CustomerId$i)  REFERENCES Customers (Id)
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+  ) engine=InnoDB;
+  
+    inc $i;
+}
+
+Insert Customers(Age) 
+VALUES(20);
+
+let $i=1;
+while($i < 5) {
+    EVAL Insert t_$i(CustomerId$i, Sum)
+    VALUES(1, 300);
+  
+    inc $i;
+}
+
+
+let $i=1;
+
+while($i < 50) {
+    EVAL UPDATE Customers
+    SET Age = Age + $i;
+    inc $i;
+}

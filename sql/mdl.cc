@@ -1938,7 +1938,7 @@ const LEX_STRING *MDL_ticket::get_type_name(enum_mdl_type type) const
 
 /**
   Check whether the context already holds a compatible lock ticket
-  on an object.
+  on an object.git fetch upstream
   Start searching from list of locks for the same duration as lock
   being requested. If not look at lists for other durations.
 
