@@ -2588,12 +2588,13 @@ struct thd_async_state
 
 #include <string.h>
 
+
 class prelocked_table_hash
 {
 public:
   prelocked_table_hash()
   {
-    capacity = 256;
+    capacity= START_CAPACITY;
     hash_array = (TABLE_LIST**)calloc(capacity, sizeof(TABLE_LIST*));
     size = 0;
   }
@@ -2652,7 +2653,7 @@ private:
 public:
   bool insert(TABLE_LIST* tl) 
   { 
-    if (static_cast<float>(size + 1) / static_cast<float>(capacity) > load_factor)
+    if (static_cast<double>(size + 1) / static_cast<double>(capacity) > LOAD_FACTOR)
       rehash(2 * capacity);
 
     return insert_helper(tl);
@@ -2687,6 +2688,7 @@ public:
 
   bool clear() 
   {
+    capacity= START_CAPACITY;
     for (uint32 i= 0; i < capacity; i++)
     {
       hash_array[i]= nullptr;
@@ -2697,8 +2699,9 @@ public:
 
 
 private:
+  static constexpr uint32 START_CAPACITY = 256;
+  static constexpr double LOAD_FACTOR= 0.5f;
   uint32 capacity;
-  float load_factor= 0.5f;
   TABLE_LIST **hash_array;
   uint32 size;
 };
