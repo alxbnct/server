@@ -2685,6 +2685,16 @@ public:
     return nullptr;
   };
 
+  bool clear() 
+  {
+    for (uint32 i= 0; i < capacity; i++)
+    {
+      hash_array[i]= nullptr;
+    }
+
+    return true;
+  }
+
 
 private:
   uint32 capacity;

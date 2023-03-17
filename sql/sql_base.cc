@@ -1004,6 +1004,12 @@ void close_thread_table(THD *thd, TABLE **table_ptr)
   }
 
   /*
+    Clear prelocked tables hash 
+  */
+  thd->pr_table_hash.clear();
+
+
+  /*
     Do this *before* entering the TABLE_SHARE::tdc.LOCK_table_share
     critical section.
   */
