@@ -2593,23 +2593,13 @@ class prelocked_table_hash
 public:
   prelocked_table_hash()
   {
-    capacity = 137;
-    hash_array= new TABLE_LIST *[capacity];
+    capacity = 256;
+    hash_array = (TABLE_LIST**)calloc(capacity, sizeof(TABLE_LIST*));
     size = 0;
-
-    for (uint32 i = 0; i < capacity; i++)
-    {
-      hash_array[i] = nullptr;
-    }
   }
 
   ~prelocked_table_hash() 
   {
-    for (uint32 i = 0; i < capacity; i++) 
-    {
-      delete hash_array[i];
-    }
-
     delete[] hash_array;
   }
 
@@ -2634,35 +2624,26 @@ private:
       }
       else
       {
-          return false;
+        return false;
       }
     }
 
     return false;
   };
 
-  void rehash(int32 _capacity) {
+  void rehash(int32 _capacity) 
+  {
     int32 past_capacity = capacity;
     capacity= _capacity;
     auto temp_hash_array= hash_array;
-    hash_array= new TABLE_LIST* [capacity];
-
-    for (uint32 i= 0; i < capacity; i++)
-    {
-      hash_array[i]= nullptr;
-    }
+    hash_array= (TABLE_LIST **) calloc(capacity, sizeof(TABLE_LIST *));
 
     for (uint32 i= 0; i < past_capacity; i++)
     {
       if (temp_hash_array[i])
       {
-        insert(temp_hash_array[i]);
+        insert_helper(temp_hash_array[i]);
       }
-    }
-
-    for (uint32 i= 0; i < past_capacity; i++)
-    {
-       delete temp_hash_array[i];
     }
 
     delete[] temp_hash_array;
@@ -2671,29 +2652,28 @@ private:
 public:
   bool insert(TABLE_LIST* tl) 
   { 
-    if (static_cast<float>(size + 1) / static_cast<float>(capacity) >
-        load_factor)
+    if (static_cast<float>(size + 1) / static_cast<float>(capacity) > load_factor)
       rehash(2 * capacity);
 
     return insert_helper(tl);
   };
 
-  TABLE_LIST* find(TABLE_LIST *tl, const char *db_name, const char *table_name)
+  TABLE_LIST* find(const char *db_name, const char *table_name, MDL_key* mdl_key)
   {
-
-    tl->mdl_request.key.mdl_key_init(MDL_key::TABLE, db_name, table_name);
-    auto key= tl->mdl_request.key.hash_value();
+    mdl_key->mdl_key_init(MDL_key::TABLE, db_name, table_name);
+    auto key= mdl_key->hash_value();
 
     for (uint32 i= 1; i < capacity; i++)
     {
-      if (hash_array[key % capacity] != nullptr)
-      {
+        if (hash_array[key % capacity] != nullptr)
+        {
+        auto tt= hash_array[key % capacity];
         if (!strcmp(hash_array[key % capacity]->get_table_name(), table_name) &&
             !strcmp(hash_array[key % capacity]->get_db_name(), db_name))
           return hash_array[key % capacity];
         else
         {
-          key= tl->mdl_request.key.hash_value() + i;
+          key= mdl_key->hash_value() + i;
         }
       }
       else
@@ -2702,14 +2682,13 @@ public:
       }
     }
 
-    //????
     return nullptr;
   };
 
 
 private:
   uint32 capacity;
-  float load_factor= 0.7f;
+  float load_factor= 0.5f;
   TABLE_LIST **hash_array;
   uint32 size;
 };
