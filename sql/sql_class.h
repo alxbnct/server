@@ -2610,7 +2610,7 @@ private:
     auto key= tl->mdl_request.key.hash_value();
     auto k= key % capacity;
 
-    for (int i = 1; i < capacity; i++)
+    for (uint i = 1; i < capacity; i++)
     {
       if (hash_array[key % capacity] == nullptr)
       {
@@ -2632,14 +2632,14 @@ private:
     return false;
   };
 
-  void rehash(int32 _capacity) 
+  void rehash(uint _capacity) 
   {
-    int32 past_capacity = capacity;
+    uint past_capacity = capacity;
     capacity= _capacity;
     auto temp_hash_array= hash_array;
     hash_array= (TABLE_LIST **) calloc(capacity, sizeof(TABLE_LIST *));
 
-    for (uint32 i= 0; i < past_capacity; i++)
+    for (uint i= 0; i < past_capacity; i++)
     {
       if (temp_hash_array[i])
       {
@@ -2653,7 +2653,7 @@ private:
 public:
   bool insert(TABLE_LIST* tl) 
   { 
-    if (static_cast<double>(size + 1) / static_cast<double>(capacity) > LOAD_FACTOR)
+    if (static_cast<double>(size + 1) > LOAD_FACTOR * static_cast<double>(capacity))
       rehash(2 * capacity);
 
     return insert_helper(tl);
@@ -2664,7 +2664,7 @@ public:
     mdl_key->mdl_key_init(MDL_key::TABLE, db_name, table_name);
     auto key= mdl_key->hash_value();
 
-    for (uint32 i= 1; i < capacity; i++)
+    for (uint i= 1; i < capacity; i++)
     {
         if (hash_array[key % capacity] != nullptr)
         {
@@ -2689,7 +2689,7 @@ public:
   bool clear() 
   {
     capacity= START_CAPACITY;
-    for (uint32 i= 0; i < capacity; i++)
+    for (uint i= 0; i < capacity; i++)
     {
       hash_array[i]= nullptr;
     }
@@ -2699,11 +2699,12 @@ public:
 
 
 private:
-  static constexpr uint32 START_CAPACITY = 256;
+  static constexpr uint START_CAPACITY = 256;
   static constexpr double LOAD_FACTOR= 0.5f;
-  uint32 capacity;
+  uint capacity;
   TABLE_LIST **hash_array;
-  uint32 size;
+  uint size;
+
 };
 
 /**
