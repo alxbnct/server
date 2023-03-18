@@ -2592,12 +2592,12 @@ struct thd_async_state
 class prelocked_table_hash
 {
 public:
-  prelocked_table_hash()
+  /*prelocked_table_hash()
   {
     capacity= START_CAPACITY;
     hash_array = (TABLE_LIST**)calloc(capacity, sizeof(TABLE_LIST*));
     size = 0;
-  }
+  }*/
 
   ~prelocked_table_hash() 
   {
@@ -2650,9 +2650,42 @@ private:
     delete[] temp_hash_array;
   }
     
+  void init_hash_array()
+  {
+    auto _first= first;
+    auto _second= second;
+
+    capacity= START_CAPACITY;
+    hash_array = (TABLE_LIST**)calloc(capacity, sizeof(TABLE_LIST*));
+    size= 0;
+
+    insert_helper(_first);
+    insert_helper(_second);
+  }
+
 public:
   bool insert(TABLE_LIST* tl) 
   { 
+
+    if (size == 0)
+    {
+      first= tl;
+      size++;
+      return true;
+    }
+
+    if (size == 1)
+    {
+      second= tl;
+      size++;
+      return true;
+    }
+
+    if (size == 2)
+    {
+      init_hash_array();
+    }
+
     if (static_cast<double>(size + 1) > LOAD_FACTOR * static_cast<double>(capacity))
       rehash(2 * capacity);
 
@@ -2661,6 +2694,18 @@ public:
 
   TABLE_LIST* find(const char *db_name, const char *table_name, MDL_key* mdl_key)
   {
+    if (size <= 2)
+    {
+      if (first != nullptr && !strcmp(first->get_table_name(), table_name) &&
+          !strcmp(first->get_db_name(), db_name))
+        return first;
+      if (second != nullptr && !strcmp(second->get_table_name(), table_name) &&
+          !strcmp(second->get_db_name(), db_name))
+        return second;
+
+      return nullptr;
+    }
+
     mdl_key->mdl_key_init(MDL_key::TABLE, db_name, table_name);
     auto key= mdl_key->hash_value();
 
@@ -2701,9 +2746,23 @@ public:
 private:
   static constexpr uint START_CAPACITY = 256;
   static constexpr double LOAD_FACTOR= 0.5f;
-  uint capacity;
+  union
+  {
+    struct
+    {
+      TABLE_LIST *first;
+      TABLE_LIST *second;
+    };
+    struct
+    {
+      TABLE_LIST **hash_array;
+      uint32 size;
+      uint32 capacity;
+    };
+  };
+  /*uint capacity;
   TABLE_LIST **hash_array;
-  uint size;
+  uint size;*/
 
 };
 
