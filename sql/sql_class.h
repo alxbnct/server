@@ -2588,20 +2588,26 @@ struct thd_async_state
 
 #include <string.h>
 
+class markable_reference
+{
+public:
+  void set_ptr(TABLE_LIST *tl) { p= reinterpret_cast<uintptr_t>(tl); }
+  TABLE_LIST *ptr() { return reinterpret_cast<TABLE_LIST *>(p); }
+
+  void set_mark(bool mark) { low_type= mark; }
+  bool mark() { return low_type; };
+
+private:
+  bool low_type : 1;
+  uintptr_t p : 63;
+};
 
 class prelocked_table_hash
 {
 public:
-  /*prelocked_table_hash()
+  prelocked_table_hash()
   {
-    capacity= START_CAPACITY;
-    hash_array = (TABLE_LIST**)calloc(capacity, sizeof(TABLE_LIST*));
-    size = 0;
-  }*/
-
-  ~prelocked_table_hash() 
-  {
-    delete[] hash_array;
+    first.set_mark(true);
   }
 
 private:
@@ -2652,11 +2658,11 @@ private:
     
   void init_hash_array()
   {
-    auto _first= first;
-    auto _second= second;
+    TABLE_LIST *_first= first.ptr();
+    TABLE_LIST *_second= second;
 
     capacity= START_CAPACITY;
-    hash_array = (TABLE_LIST**)calloc(capacity, sizeof(TABLE_LIST*));
+    hash_array= (TABLE_LIST **) calloc(capacity, sizeof(TABLE_LIST *));
     size= 0;
 
     insert_helper(_first);
@@ -2666,24 +2672,23 @@ private:
 public:
   bool insert(TABLE_LIST* tl) 
   { 
-
-    if (size == 0)
+    if (first.mark())
     {
-      first= tl;
-      size++;
-      return true;
-    }
-
-    if (size == 1)
-    {
-      second= tl;
-      size++;
-      return true;
-    }
-
-    if (size == 2)
-    {
-      init_hash_array();
+      if (!first.ptr()) 
+      {
+        first.set_ptr(tl);
+        return true;
+      }
+      else if (!second) 
+      {
+        second= tl;
+        return true;
+      }
+      else
+      {
+        first.set_mark(false);
+        init_hash_array();
+      }
     }
 
     if (static_cast<double>(size + 1) > LOAD_FACTOR * static_cast<double>(capacity))
@@ -2694,17 +2699,19 @@ public:
 
   TABLE_LIST* find(const char *db_name, const char *table_name, MDL_key* mdl_key)
   {
-    if (size <= 2)
+    if (first.mark()) 
     {
-      if (first != nullptr && !strcmp(first->get_table_name(), table_name) &&
-          !strcmp(first->get_db_name(), db_name))
-        return first;
+      if (first.ptr() &&
+          !strcmp(first.ptr()->get_table_name(), table_name) &&
+          !strcmp(first.ptr()->get_db_name(), db_name))
+        return first.ptr();
       if (second != nullptr && !strcmp(second->get_table_name(), table_name) &&
           !strcmp(second->get_db_name(), db_name))
         return second;
 
       return nullptr;
     }
+
 
     mdl_key->mdl_key_init(MDL_key::TABLE, db_name, table_name);
     auto key= mdl_key->hash_value();
@@ -2733,6 +2740,9 @@ public:
 
   bool clear() 
   {
+    if (!hash_array || first.mark())
+        return false;
+
     capacity= START_CAPACITY;
     for (uint i= 0; i < capacity; i++)
     {
@@ -2750,7 +2760,7 @@ private:
   {
     struct
     {
-      TABLE_LIST *first;
+      markable_reference first;
       TABLE_LIST *second;
     };
     struct
@@ -2760,10 +2770,6 @@ private:
       uint32 capacity;
     };
   };
-  /*uint capacity;
-  TABLE_LIST **hash_array;
-  uint size;*/
-
 };
 
 /**
