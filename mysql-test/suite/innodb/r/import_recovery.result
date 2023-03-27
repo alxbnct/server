@@ -23,17 +23,23 @@ UNLOCK TABLES;
 connect  hang1,localhost,root;
 SET DEBUG_SYNC='ib_after_create_stub_for_import SIGNAL hung WAIT_FOR ever';
 ALTER TABLE t1 IMPORT TABLESPACE;
+connection default;
+SET DEBUG_SYNC='now WAIT_FOR hung';
 connect  hang2,localhost,root;
 SET DEBUG_SYNC='ib_after_create_stub_for_import SIGNAL hung WAIT_FOR ever';
 ALTER TABLE t2 IMPORT TABLESPACE;
+connection default;
+SET DEBUG_SYNC='now WAIT_FOR hung';
 connect  hang3,localhost,root;
 SET DEBUG_SYNC='ib_after_create_stub_for_import SIGNAL hung WAIT_FOR ever';
 ALTER TABLE t3 IMPORT TABLESPACE;
+connection default;
+SET DEBUG_SYNC='now WAIT_FOR hung';
 connect  hang4,localhost,root;
 SET DEBUG_SYNC='ib_after_create_stub_for_import SIGNAL hung WAIT_FOR ever';
 ALTER TABLE t4 IMPORT TABLESPACE;
 connection default;
-SET DEBUG_SYNC='now WAIT_FOR hung EXECUTE 4';
+SET DEBUG_SYNC='now WAIT_FOR hung';
 # corrupting the 0th page
 # Restart mysqld after the crash and reconnect.
 # restart

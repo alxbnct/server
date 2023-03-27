@@ -47,21 +47,27 @@ UNLOCK TABLES;
 connect (hang1,localhost,root);
 SET DEBUG_SYNC='ib_after_create_stub_for_import SIGNAL hung WAIT_FOR ever';
 send ALTER TABLE t1 IMPORT TABLESPACE;
+connection default;
+SET DEBUG_SYNC='now WAIT_FOR hung';
 
 connect (hang2,localhost,root);
 SET DEBUG_SYNC='ib_after_create_stub_for_import SIGNAL hung WAIT_FOR ever';
 send ALTER TABLE t2 IMPORT TABLESPACE;
+connection default;
+SET DEBUG_SYNC='now WAIT_FOR hung';
 
 connect (hang3,localhost,root);
 SET DEBUG_SYNC='ib_after_create_stub_for_import SIGNAL hung WAIT_FOR ever';
 send ALTER TABLE t3 IMPORT TABLESPACE;
+connection default;
+SET DEBUG_SYNC='now WAIT_FOR hung';
 
 connect (hang4,localhost,root);
 SET DEBUG_SYNC='ib_after_create_stub_for_import SIGNAL hung WAIT_FOR ever';
 send ALTER TABLE t4 IMPORT TABLESPACE;
-
 connection default;
-SET DEBUG_SYNC='now WAIT_FOR hung EXECUTE 4';
+SET DEBUG_SYNC='now WAIT_FOR hung';
+
 let $shutdown_timeout=0;
 --source include/shutdown_mysqld.inc
 

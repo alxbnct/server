@@ -3383,29 +3383,25 @@ static dberr_t row_import_read_cfg_internal(const char* filename, THD* thd,
                                             row_import& cfg)
 {
   dberr_t err;
+  FILE* file= fopen(filename, "rb");
 
-  FILE* file = fopen(filename, "rb");
-
-  if (file == NULL) {
+  if (!file)
+  {
     char msg[BUFSIZ];
-
     snprintf(msg, sizeof(msg),
              "Error opening '%s', will attempt to import"
              " without schema verification", filename);
-
     ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_READ_ERROR,
                 (ulong) errno, strerror(errno), msg);
-
     cfg.m_missing= true;
-
     err= DB_FAIL;
-  } else
-    {
-      cfg.m_missing= false;
-
-      err= row_import_read_meta_data(file, thd, cfg);
-      fclose(file);
-    }
+  }
+  else
+  {
+    cfg.m_missing= false;
+    err= row_import_read_meta_data(file, thd, cfg);
+    fclose(file);
+  }
 
   return err;
 }
@@ -3462,13 +3458,13 @@ Read the row type from a .cfg file.
 static enum row_type get_row_type_from_cfg(const char* dir_path,
                                            const char* name, THD* thd)
 {
-  char* filename = fil_make_filepath(dir_path,
-                                     table_name_t(const_cast<char*>(name)),
-                                     CFG, dir_path != nullptr);
+  char* filename= fil_make_filepath(dir_path,
+                                    table_name_t(const_cast<char*>(name)),
+                                    CFG, dir_path != nullptr);
   if (!filename)
     return ROW_TYPE_NOT_USED;
   row_import cfg;
-  dberr_t err = row_import_read_cfg_internal(filename, thd, cfg);
+  dberr_t err= row_import_read_cfg_internal(filename, thd, cfg);
   ut_free(filename);
   if (err == DB_SUCCESS)
     return from_rec_format(dict_tf_get_rec_format(cfg.m_flags));
@@ -3817,7 +3813,7 @@ page_corrupted:
   if (m_table)
     err= this->operator()(block);
   else
-    m_row_format = get_row_format(block);
+    m_row_format= get_row_format(block);
 func_exit:
   free(page_compress_buf);
   return err;
@@ -4166,8 +4162,8 @@ fil_tablespace_iterate(
 			return(DB_CORRUPTION););
 
 	table_name_t table_name(const_cast<char*>(name));
-	filepath = fil_make_filepath(dir_path, table_name, IBD,
-				     dir_path != nullptr);
+	filepath= fil_make_filepath(dir_path, table_name, IBD,
+				    dir_path != nullptr);
 	if (!filepath) {
 		return(DB_OUT_OF_MEMORY);
 	} else {
@@ -4303,7 +4299,6 @@ Iterate over all or some pages in the tablespace.
 static
 dberr_t
 fil_tablespace_iterate(
-/*===================*/
   dict_table_t *table,
   ulint n_io_buffers,
   AbstractCallback &callback)
@@ -4311,7 +4306,7 @@ fil_tablespace_iterate(
   /* Make sure the data_dir_path is set. */
   dict_get_and_save_data_dir_path(table);
   ut_ad(!DICT_TF_HAS_DATA_DIR(table->flags) || table->data_dir_path);
-  const char *data_dir_path = DICT_TF_HAS_DATA_DIR(table->flags)
+  const char *data_dir_path= DICT_TF_HAS_DATA_DIR(table->flags)
           ? table->data_dir_path : nullptr;
   return fil_tablespace_iterate(table->name.m_name, n_io_buffers, callback,
                                 data_dir_path);
@@ -4665,7 +4660,7 @@ int prepare_create_stub_for_import(THD *thd, const char *name,
                              fetchIndexRootPages, fil_path_to_mysql_datadir)
       != DB_SUCCESS)
   {
-    const char *ibd_path = fil_make_filepath(
+    const char *ibd_path= fil_make_filepath(
       fil_path_to_mysql_datadir, table_name_t(const_cast<char*>(name)), IBD,
       true);
     if (!ibd_path)
@@ -4676,7 +4671,7 @@ int prepare_create_stub_for_import(THD *thd, const char *name,
   }
   create_info.init();
   /* get the row format from ibd. */
-  create_info.row_type = fetchIndexRootPages.m_row_format;
+  create_info.row_type= fetchIndexRootPages.m_row_format;
   /* if .cfg exists, get the row format from cfg, and compare with
   ibd, report error if different, except when cfg reports
   compact/dynamic and ibd reports not_used (indicating either compact
@@ -4699,7 +4694,8 @@ int prepare_create_stub_for_import(THD *thd, const char *name,
     }
     else
       create_info.row_type= row_type_from_cfg;
-  } else if (create_info.row_type == ROW_TYPE_NOT_USED)
-    create_info.row_type = ROW_TYPE_DYNAMIC;
+  }
+  else if (create_info.row_type == ROW_TYPE_NOT_USED)
+    create_info.row_type= ROW_TYPE_DYNAMIC;
   DBUG_RETURN(0);
 }

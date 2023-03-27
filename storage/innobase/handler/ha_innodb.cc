@@ -5859,8 +5859,8 @@ ha_innobase::open(const char* name, int, uint)
 			DBUG_RETURN(err);
 		create(norm_name, table, &create_info, true, nullptr);
 		DEBUG_SYNC(thd, "ib_after_create_stub_for_import");
-		ib_table = open_dict_table(name, norm_name, is_part,
-					   DICT_ERR_IGNORE_FK_NOKEY);
+		ib_table= open_dict_table(name, norm_name, is_part,
+					  DICT_ERR_IGNORE_FK_NOKEY);
 	}
 
 	if (NULL == ib_table) {
@@ -10589,7 +10589,7 @@ create_table_info_t::create_table_def()
 	/* Assume the tablespace is not available until we are able to
 	import it.*/
 	if (m_creating_stub)
-		table->file_unreadable = true;
+		table->file_unreadable= true;
 
 	if (DICT_TF_HAS_DATA_DIR(m_flags)) {
 		ut_a(strlen(m_remote_path));
