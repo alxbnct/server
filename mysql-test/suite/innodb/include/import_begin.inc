@@ -1,5 +1,5 @@
 --source include/innodb_row_format_2.inc
---source include/innodb_checksum_algorithm_2.inc
+--source include/innodb_checksum_algorithm.inc
 
 --echo #
 --echo # MDEV-26137 ALTER TABLE IMPORT enhancement
@@ -26,9 +26,6 @@ if($MTR_COMBINATION_COMPRESSED) {
 if($MTR_COMBINATION_REDUNDANT_DEFAULT) {
   let $ROW_FORMAT_OPTION = ;
   SET GLOBAL innodb_default_row_format='redundant';
-}
-if($MTR_COMBINATION_CRC32) {
-  SET GLOBAL innodb_checksum_algorithm=crc32;
 }
 let $CREATE_OPTIONS = ENGINE=InnoDB $ROW_FORMAT_OPTION;
 let $CREATE_OPTIONS_REGEX = /ENGINE=InnoDB.*$ROW_FORMAT_OPTION/CREATE_OPTIONS/;
