@@ -28,12 +28,12 @@ Created 2012-02-08 by Sunny Bains
 #define row0import_h
 
 #include "dict0types.h"
-#include <handler.h>
 
 // Forward declarations
 struct trx_t;
 struct dict_table_t;
 struct row_prebuilt_t;
+struct HA_CREATE_INFO;
 
 /*****************************************************************//**
 Imports a tablespace. The space id in the .ibd file must match the space id
