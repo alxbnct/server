@@ -6,7 +6,6 @@
 --echo # MDEV-26137 ALTER TABLE IMPORT enhancement
 --echo #
 
-let $MYSQLD_DATADIR = `SELECT @@datadir`;
 let MYSQLD_DATADIR = `SELECT @@datadir`;
 let INNODB_PAGE_SIZE=`select @@innodb_page_size`;
 
