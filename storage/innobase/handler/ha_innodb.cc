@@ -5848,22 +5848,22 @@ ha_innobase::open(const char* name, int, uint)
 
 	DEBUG_SYNC(thd, "ib_open_after_dict_open");
 
-	/* If the table does not exist and we are trying to import, create a
-	"stub" table similar to the effects of CREATE TABLE followed by ALTER
-	TABLE ... DISCARD TABLESPACE. */
-	if (!ib_table && thd_ddl_options(thd)->import_tablespace())
-	{
+	if (UNIV_LIKELY(ib_table != nullptr)) {
+	} else if (thd_ddl_options(thd)->import_tablespace()) {
+		/* If the table does not exist and we are trying to
+		import, create a "stub" table similar to the effects
+		of CREATE TABLE followed by ALTER TABLE ... DISCARD
+		TABLESPACE. */
+
 		HA_CREATE_INFO create_info;
-		if (int err= prepare_create_stub_for_import(thd, norm_name,
-							    create_info))
+		if (int err = prepare_create_stub_for_import(thd, norm_name,
+							     create_info))
 			DBUG_RETURN(err);
 		create(norm_name, table, &create_info, true, nullptr);
 		DEBUG_SYNC(thd, "ib_after_create_stub_for_import");
-		ib_table= open_dict_table(name, norm_name, is_part,
-					  DICT_ERR_IGNORE_FK_NOKEY);
-	}
-
-	if (NULL == ib_table) {
+		ib_table = open_dict_table(name, norm_name, is_part,
+					   DICT_ERR_IGNORE_FK_NOKEY);
+	} else {
 		if (is_part) {
 			sql_print_error("Failed to open table %s.\n",
 					norm_name);
@@ -10588,8 +10588,7 @@ create_table_info_t::create_table_def()
 
 	/* Assume the tablespace is not available until we are able to
 	import it.*/
-	if (m_creating_stub)
-		table->file_unreadable= true;
+	table->file_unreadable = m_creating_stub;
 
 	if (DICT_TF_HAS_DATA_DIR(m_flags)) {
 		ut_a(strlen(m_remote_path));
@@ -11606,8 +11605,7 @@ index_bad:
 
 	/* If we are trying to import a tablespace, mark tablespace as
 	discarded. */
-	if (m_creating_stub)
-		m_flags2 |= DICT_TF2_DISCARDED;
+	m_flags2 |= ulint{m_creating_stub} << DICT_TF2_POS_DISCARDED;
 
 	row_type = m_create_info->row_type;
 
@@ -12756,6 +12754,7 @@ int create_table_info_t::create_table(bool create_fk)
 		dict_table_get_all_fts_indexes(m_table, fts->indexes);
 	}
 
+	create_fk&= !m_creating_stub;
 	dberr_t err = create_fk ? create_foreign_keys() : DB_SUCCESS;
 
 	if (err == DB_SUCCESS) {
@@ -13163,7 +13162,7 @@ ha_innobase::create(const char *name, TABLE *form, HA_CREATE_INFO *create_info,
     /* We can't possibly have foreign key information when creating a
     stub table for importing .frm / .cfg / .ibd because it is not
     stored in any of these files. */
-    error= info.create_table(own_trx && !info.creating_stub());
+    error= info.create_table(own_trx);
 
   if (own_trx || (info.flags2() & DICT_TF2_TEMPORARY))
   {

@@ -685,15 +685,11 @@ struct FetchIndexRootPages : public AbstractCallback {
 	/** Constructor
 	@param trx covering (user) transaction
 	@param table table definition in server .*/
-	FetchIndexRootPages(const dict_table_t* table, trx_t* trx)
+	FetchIndexRootPages(const dict_table_t* table = nullptr,
+			    trx_t* trx = nullptr)
 		:
 		AbstractCallback(trx, UINT32_MAX),
 		m_table(table), m_index(0, 0) UNIV_NOTHROW { }
-
-	FetchIndexRootPages()
-		:
-		AbstractCallback(nullptr, UINT32_MAX),
-		m_table(nullptr), m_index(0, 0) UNIV_NOTHROW { }
 
 	/** Destructor */
 	~FetchIndexRootPages() UNIV_NOTHROW override = default;
@@ -711,28 +707,25 @@ struct FetchIndexRootPages : public AbstractCallback {
 	dberr_t operator()(buf_block_t* block) UNIV_NOTHROW override;
 
 	/** Get row format from the header and the root index page. */
-	enum row_type get_row_format(buf_block_t *block)
+	enum row_type get_row_format(const buf_block_t &block)
 	{
-		if (!page_is_comp(block->page.frame))
+		if (!page_is_comp(block.page.frame))
 			return ROW_TYPE_REDUNDANT;
 		/* With full_crc32 we cannot tell between dynamic or
-		   compact, and return not_used. We cannot simply
-		   return dynamic or compact, as the client of this
-		   function will not be able to tell whether it is
-		   dynamic because of this or the other branch
-		   below. Returning default would also work if it is
-		   immediately handled, but is still more ambiguous
-		   than not_used, which is not a row_format at all. */
+		compact, and return not_used. We cannot simply return
+		dynamic or compact, as the client of this function
+		will not be able to tell whether it is dynamic because
+		of this or the other branch below. Returning default
+		would also work if it is immediately handled, but is
+		still more ambiguous than not_used, which is not a
+		row_format at all. */
 		if (fil_space_t::full_crc32(m_space_flags))
 			return ROW_TYPE_NOT_USED;
-		if (m_space_flags & FSP_FLAGS_MASK_ATOMIC_BLOBS)
-		{
-			if (FSP_FLAGS_GET_ZIP_SSIZE(m_space_flags))
-				return ROW_TYPE_COMPRESSED;
-			else
-				return ROW_TYPE_DYNAMIC;
-		}
-		return ROW_TYPE_COMPACT;
+		if (!(m_space_flags & FSP_FLAGS_MASK_ATOMIC_BLOBS))
+			return ROW_TYPE_COMPACT;
+		if (FSP_FLAGS_GET_ZIP_SSIZE(m_space_flags))
+			return ROW_TYPE_COMPRESSED;
+		return ROW_TYPE_DYNAMIC;
 	}
 
 	/** Update the import configuration that will be used to import
@@ -3379,11 +3372,12 @@ Read the contents of a .cfg file.
 @param[in]  thd       Connection
 @param[out] cfg   Contents of the .cfg file.
 @return DB_SUCCESS or error code. */
-static dberr_t row_import_read_cfg_internal(const char* filename, THD* thd,
-                                            row_import& cfg)
+static dberr_t row_import_read_cfg_internal(const char *filename, THD *thd,
+                                            row_import &cfg)
 {
-  dberr_t err;
-  FILE* file= fopen(filename, "rb");
+  FILE *file= fopen(filename, "rb");
+
+  cfg.m_missing= !file;
 
   if (!file)
   {
@@ -3393,16 +3387,11 @@ static dberr_t row_import_read_cfg_internal(const char* filename, THD* thd,
              " without schema verification", filename);
     ib_senderrf(thd, IB_LOG_LEVEL_WARN, ER_IO_READ_ERROR,
                 (ulong) errno, strerror(errno), msg);
-    cfg.m_missing= true;
-    err= DB_FAIL;
-  }
-  else
-  {
-    cfg.m_missing= false;
-    err= row_import_read_meta_data(file, thd, cfg);
-    fclose(file);
+    return DB_FAIL;
   }
 
+  dberr_t err= row_import_read_meta_data(file, thd, cfg);
+  fclose(file);
   return err;
 }
 
@@ -3441,10 +3430,10 @@ static enum row_type from_rec_format(const rec_format_enum from)
     return ROW_TYPE_REDUNDANT;
   case REC_FORMAT_COMPRESSED:
     return ROW_TYPE_COMPRESSED;
-  /* Impossible. */
-  default:
-    return ROW_TYPE_DEFAULT;
   }
+
+  ut_ad("invalid format" == 0);
+  return ROW_TYPE_NOT_USED;
 }
 
 /**
@@ -3452,9 +3441,11 @@ Read the row type from a .cfg file.
 @param  dir_path  Path to the data directory containing the .cfg file
 @param  name      Name of the table
 @param  thd       Connection
-@return one of ROW_TYPE_COMPACT, ROW_TYPE_DYNAMIC, ROW_TYPE_REDUNDANT,
-        ROW_TYPE_COMPRESSED, ROW_TYPE_DEFAULT, or ROW_TYPE_NOT_USED to
-        signal error. */
+@retval ROW_TYPE_COMPACT    for ROW_FORMAT=COMPACT
+@retval ROW_TYPE_DYNAMIC    for ROW_FORMAT=DYNAMIC
+@retval ROW_TYPE_REDUNDANT  for ROW_FORMAT=REDUNDANT
+@retval ROW_TYPE_COMPRESSED for ROW_FORMAT=COMPRESSED
+@retval ROW_TYPE_NOT_USED to signal error */
 static enum row_type get_row_type_from_cfg(const char* dir_path,
                                            const char* name, THD* thd)
 {
@@ -3813,7 +3804,7 @@ page_corrupted:
   if (m_table)
     err= this->operator()(block);
   else
-    m_row_format= get_row_format(block);
+    m_row_format= get_row_format(*block);
 func_exit:
   free(page_compress_buf);
   return err;
@@ -4292,22 +4283,18 @@ fil_tablespace_iterate(
 
 /**
 Iterate over all or some pages in the tablespace.
-@param table the table definiton in the server
-@param n_io_buffers number of blocks to read and write together
-@param callback functor that will do the page queries or updates
+@param table         the table definiton in the server
+@param n_io_buffers  number of blocks to read and write together
+@param callback      functor that will do the page queries or updates
 @return DB_SUCCESS or error code */
-static
-dberr_t
-fil_tablespace_iterate(
-  dict_table_t *table,
-  ulint n_io_buffers,
-  AbstractCallback &callback)
+static dberr_t fil_tablespace_iterate(dict_table_t *table, ulint n_io_buffers,
+                                      AbstractCallback &callback)
 {
   /* Make sure the data_dir_path is set. */
   dict_get_and_save_data_dir_path(table);
   ut_ad(!DICT_TF_HAS_DATA_DIR(table->flags) || table->data_dir_path);
   const char *data_dir_path= DICT_TF_HAS_DATA_DIR(table->flags)
-          ? table->data_dir_path : nullptr;
+    ? table->data_dir_path : nullptr;
   return fil_tablespace_iterate(table->name.m_name, n_io_buffers, callback,
                                 data_dir_path);
 }
@@ -4647,10 +4634,11 @@ row_import_for_mysql(
 }
 
 /** Prepare the create info to create a new stub table for import.
-@param[in]	thd		Connection
-@param[in]	name		Table name, format: "db/table_name".
-@param[in,out]	create_info	The create info for creating a stub.
-@return	0 if success else error number. */
+@param thd          Connection
+@param name         Table name, format: "db/table_name".
+@param create_info  The create info for creating a stub.
+@return ER_ error code
+@retval 0 on success */
 int prepare_create_stub_for_import(THD *thd, const char *name,
                                    HA_CREATE_INFO& create_info)
 {
