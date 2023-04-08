@@ -1981,6 +1981,11 @@ MDL_context::find_ticket(MDL_request *mdl_request,
   return NULL;
 }
 
+MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration)
+{
+  return t_hash.find(mdl_key, duration);
+}
+
 
 /**
   Try to acquire one lock.
@@ -2066,6 +2071,7 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
     Check whether the context already holds a shared lock on the object,
     and if so, grant the request.
   */
+  auto t= find_ticket_using_hash(&mdl_request->key, mdl_request->duration);
   if ((ticket= find_ticket(mdl_request, &found_duration)))
   {
     DBUG_ASSERT(ticket->m_lock);
@@ -2108,6 +2114,9 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
 #endif
                                    )))
     return TRUE;
+
+  //insert ticket to hash
+  t_hash.insert(&mdl_request->key, ticket, mdl_request->duration);
 
   /* The below call implicitly locks MDL_lock::m_rwlock on success. */
   if (!(lock= mdl_locks.find_or_insert(m_pins, key)))

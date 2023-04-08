@@ -866,6 +866,118 @@ private:
 };
 
 
+class ticket_hash
+{
+public:
+  ticket_hash() 
+  { 
+    size= 0;
+    capacity= START_CAPACITY;
+    hash_array = (ticket_value_type **) calloc(capacity, sizeof(ticket_value_type *));
+  }
+
+private:
+  bool insert_helper(MDL_key *mdl_key, MDL_ticket *ticket,
+                     enum_mdl_duration duration)
+  {
+    auto key= my_hash_sort(&my_charset_bin, (uchar *) mdl_key, mdl_key->length());
+    auto k= key % capacity;
+
+    for (uint i= 1; i < capacity; i++)
+    {
+      if (hash_array[key % capacity] == nullptr)
+      {
+        hash_array[key % capacity]= new ticket_value_type(ticket, duration);
+        size++;
+        return true;
+      }
+      else if (hash_array[key % capacity]->ticket != ticket ||
+               hash_array[key % capacity]->duration != duration)
+      {
+        key= my_hash_sort(&my_charset_bin, (uchar *) mdl_key, mdl_key->length()) + i;
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    return false;
+  };
+
+  void rehash(MDL_key* mdl_key, MDL_ticket *ticket, uint _capacity)
+  {
+    uint past_capacity= capacity;
+    capacity= _capacity;
+    auto temp_hash_array= hash_array;
+    hash_array=
+        (ticket_value_type **) calloc(capacity, sizeof(ticket_value_type *));
+
+    for (uint i= 0; i < past_capacity; i++)
+    {
+      if (temp_hash_array[i])
+      {
+        insert_helper(mdl_key, temp_hash_array[i]->ticket,  temp_hash_array[i]->duration );
+      }
+    }
+
+    delete[] temp_hash_array;
+  }
+
+public:
+  bool insert(MDL_key *mdl_key, MDL_ticket *ticket, enum_mdl_duration duration) 
+  {
+    if (static_cast<double>(size + 1) > LOAD_FACTOR * static_cast<double>(capacity))
+      rehash(mdl_key, ticket, 2 * capacity);
+    return insert_helper(mdl_key, ticket, duration);
+  }
+
+  MDL_ticket *find(MDL_key *mdl_key, enum_mdl_duration duration)
+  {
+    auto key = my_hash_sort(&my_charset_bin, (uchar *) mdl_key, mdl_key->length());
+    for (uint i= 1; i < capacity; i++)
+    {
+      if (hash_array[key % capacity] != nullptr)
+      {
+        auto tt= hash_array[key % capacity];
+        if (hash_array[key % capacity]->ticket->get_key() == mdl_key &&
+            hash_array[key % capacity]->duration == duration)
+          return hash_array[key % capacity]->ticket;
+        else
+        {
+          key= my_hash_sort(&my_charset_bin, (uchar *) mdl_key, mdl_key->length()) + i;
+        }
+      }
+      else
+      {
+        return nullptr;
+      }
+    }
+
+    return nullptr;
+    
+  }
+
+private:
+  static constexpr uint START_CAPACITY= 256;
+  static constexpr double LOAD_FACTOR= 0.5f;
+
+  struct ticket_value_type
+  {
+  public:
+    ticket_value_type(MDL_ticket *_ticket, enum_mdl_duration _duration): 
+        ticket(_ticket), 
+        duration(_duration) {}
+    MDL_ticket *ticket;
+    enum_mdl_duration duration;
+  };
+
+  ticket_value_type **hash_array;
+  uint32 size;
+  uint32 capacity;
+};
+
+
 typedef I_P_List<MDL_request, I_P_List_adapter<MDL_request,
                  &MDL_request::next_in_list,
                  &MDL_request::prev_in_list>,
@@ -1067,11 +1179,14 @@ private:
 private:
   MDL_ticket *find_ticket(MDL_request *mdl_req,
                           enum_mdl_duration *duration);
+  MDL_ticket *find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration);
   void release_locks_stored_before(enum_mdl_duration duration, MDL_ticket *sentinel);
   void release_lock(enum_mdl_duration duration, MDL_ticket *ticket);
   bool try_acquire_lock_impl(MDL_request *mdl_request,
                              MDL_ticket **out_ticket);
   bool fix_pins();
+
+  ticket_hash t_hash;
 
 public:
   THD *get_thd() const { return m_owner->get_thd(); }
