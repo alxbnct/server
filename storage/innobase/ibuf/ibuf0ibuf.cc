@@ -3577,6 +3577,10 @@ ibuf_insert(
 	ulint			zip_size,
 	que_thr_t*		thr)
 {
+	if (!index->is_committed()) {
+		DBUG_RETURN(false);
+	}
+
 	dberr_t		err;
 	ulint		entry_size;
 	ibool		no_counter;
