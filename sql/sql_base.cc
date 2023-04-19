@@ -4728,7 +4728,8 @@ TABLE_LIST *find_fk_prelocked_table_using_hash(THD *thd, TABLE_LIST *tl, LEX_CST
                                     LEX_CSTRING *table,
                                     thr_lock_type lock_type)
 {
-  return thd->pr_table_hash.find(db->str, table->str, &tl->mdl_request.key);
+  /*return thd->pr_table_hash.find(db->str, table->str, &tl->mdl_request.key);*/
+   return thd->pr_table_hash.find_teml(&tl->mdl_request.key, tl);
 }
 
 
@@ -4857,7 +4858,7 @@ prepare_fk_prelocking_list(THD *thd, Query_tables_list *prelocking_ctx,
           &prelocking_ctx->query_tables_last,
           table_list->for_insert_data);
 
-      thd->pr_table_hash.insert(tl);
+      thd->pr_table_hash.insert_teml(&tl->mdl_request.key, tl);
     }
 
     fk->table_list= tl;

@@ -1983,7 +1983,11 @@ MDL_context::find_ticket(MDL_request *mdl_request,
 
 MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration)
 {
-  return t_hash.find(mdl_key, duration);
+  key_duration_pair *value= new key_duration_pair(mdl_key, duration);
+  auto ret_value= ticket_hash.find_teml(mdl_key, value);
+  if (ret_value == nullptr)
+    return nullptr;
+  return ret_value->mdl_ticket;
 }
 
 
@@ -2116,7 +2120,10 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
     return TRUE;
 
   //insert ticket to hash
-  t_hash.insert(&mdl_request->key, ticket, mdl_request->duration);
+  //t_hash.insert(&mdl_request->key, ticket, mdl_request->duration);
+  auto dur= mdl_request->duration;
+  ticket_duration_pair templ_value{ticket, mdl_request->duration};
+  ticket_hash.insert_teml(&mdl_request->key, &templ_value);
 
   /* The below call implicitly locks MDL_lock::m_rwlock on success. */
   if (!(lock= mdl_locks.find_or_insert(m_pins, key)))
@@ -2943,6 +2950,8 @@ void MDL_context::release_locks_stored_before(enum_mdl_duration duration,
     DBUG_PRINT("info", ("found lock to release ticket=%p", ticket));
     release_lock(duration, ticket);
   }
+
+  ticket_hash.clear();
 
   DBUG_VOID_RETURN;
 }
