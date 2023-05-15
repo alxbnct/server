@@ -611,17 +611,8 @@ public:
     LEX *oldlex= (LEX *) m_lex.pop();
     if (!oldlex)
       DBUG_RETURN(false); // Nothing to restore
-    LEX *sublex= thd->lex;
     // This restores thd->lex and thd->stmt_lex
-    if (thd->restore_from_local_lex_to_old_lex(oldlex))
-      DBUG_RETURN(true);
-    if (!sublex->sp_lex_in_use)
-    {
-      sublex->sphead= NULL;
-      lex_end(sublex);
-      delete sublex;
-    }
-    DBUG_RETURN(false);
+    DBUG_RETURN(thd->restore_from_local_lex_to_old_lex(oldlex));
   }
 
   /**

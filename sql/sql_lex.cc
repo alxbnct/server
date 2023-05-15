@@ -485,11 +485,9 @@ bool sp_create_assignment_instr(THD *thd, bool no_lookahead,
         be deleted by the destructor ~sp_instr_xxx().
         So we should remove "lex" from the stack sp_head::m_lex,
         to avoid double free.
-        Note, in case "lex" is not owned by any sp_instr_xxx,
-        it's also safe to remove it from the stack right now.
-        So we can remove it unconditionally, without testing lex->sp_lex_in_use.
       */
       lex->sphead->restore_lex(thd);
+      DBUG_ASSERT(lex->sp_lex_in_use); // No needs for "delete lex".
       return true;
     }
     enum_var_type inner_option_type= lex->option_type;
@@ -6773,7 +6771,6 @@ bool LEX::sp_for_loop_implicit_cursor_statement(THD *thd,
   if (unlikely(!(bounds->m_index=
                  new (thd->mem_root) sp_assignment_lex(thd, this))))
     return true;
-  bounds->m_index->sp_lex_in_use= true;
   sphead->reset_lex(thd, bounds->m_index);
   DBUG_ASSERT(thd->lex != this);
   /*
