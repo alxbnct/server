@@ -35,14 +35,13 @@ public:
     // first.set_mark(true);
     capacity= START_CAPACITY;
     size= 0;
-    hash_array= new value_type *[capacity];
+    hash_array= new value_type *[capacity] {};
   }
 
 private:
   bool insert_helper_teml(MDL_key* mdl_key, value_type *value)
   {
     auto key= mdl_key->hash_value();
-
     for (uint i= 1; i < capacity; i++)
     {
       if (hash_array[key % capacity] == nullptr)
@@ -70,12 +69,10 @@ private:
     return lhs == rhs;
   }
 
-  bool is_equal(ticket_duration_pair *lhs, void *rhs) 
+  bool is_equal(ticket_duration_pair *lhs, key_duration_pair *rhs) 
   {
-    key_duration_pair *rhs_value= (key_duration_pair *) rhs;
-
-    return lhs->mdl_ticket->get_key() == rhs_value->mdl_key &&
-           lhs->duration == rhs_value->duration;
+    return lhs->mdl_ticket->get_key()->is_equal(rhs->mdl_key) &&
+           lhs->duration == rhs->duration;
   }
   
 public:
@@ -116,6 +113,14 @@ public:
 
     return nullptr;
   };
+
+  bool erase(MDL_key* mdl_key, comp_type* value) 
+  { 
+    auto el= find_teml(mdl_key, value);
+    el= nullptr;
+
+    return true;
+  }
 
   void rehash(uint _capacity)
   {
@@ -192,7 +197,6 @@ public:
     {
       for (uint i= 0; i < capacity; i++)
       {
-        delete hash_array[i];
         hash_array[i]= nullptr;
       }
     }
