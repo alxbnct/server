@@ -71,6 +71,7 @@ private:
 
   bool is_equal(ticket_duration_pair *lhs, key_duration_pair *rhs) 
   {
+    //return false;
     return lhs->mdl_ticket->get_key()->is_equal(rhs->mdl_key) &&
            lhs->duration == rhs->duration;
   }
@@ -116,10 +117,29 @@ public:
 
   bool erase(MDL_key* mdl_key, comp_type* value) 
   { 
-    auto el= find_teml(mdl_key, value);
-    el= nullptr;
+    auto key= mdl_key->hash_value();
 
-    return true;
+    for (uint i= 1; i < capacity; i++)
+    {
+      if (hash_array[key % capacity] != nullptr)
+      {
+        if (is_equal(hash_array[key % capacity], value))
+        {
+          hash_array[key % capacity]= nullptr;
+          return true;
+        }
+        else
+        {
+          key+= i;
+        }
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    return false;
   }
 
   void rehash(uint _capacity)
