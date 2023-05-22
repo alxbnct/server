@@ -2588,6 +2588,15 @@ struct thd_async_state
 
 #include "local_hash.h"
 
+class table_helper
+{
+public:
+  using elem_type= TABLE_LIST;
+  static MDL_key *get_key(TABLE_LIST *tl) { return &tl->mdl_request.key; }
+
+  static bool is_equal(TABLE_LIST *lhs, TABLE_LIST *rhs) { return lhs == rhs; }
+};
+
 /**
   @class THD
   For each client connection we create a separate thread with THD serving as
@@ -2702,7 +2711,7 @@ public:
   */
   mutable mysql_mutex_t LOCK_thd_kill;
 
-  local_hash<TABLE_LIST, TABLE_LIST> pr_table_hash;
+  local_hash<table_helper, TABLE_LIST> pr_table_hash;
 
 
 

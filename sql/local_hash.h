@@ -3,6 +3,7 @@
 
 #include <string.h>
 
+
 class ticket_duration_pair
 {
 public:
@@ -27,32 +28,39 @@ public:
   enum_mdl_duration duration;
 };
 
-template <typename value_type, typename comp_type> class local_hash
+
+
+
+template <typename helper, typename comp_type> class local_hash
 {
 public:
+  using T = typename helper::elem_type;
+
+  MDL_key *get_key(T *elem) { return helper::get_key(elem); }
+
   local_hash()
   {
     // first.set_mark(true);
     capacity= START_CAPACITY;
     size= 0;
-    hash_array= new value_type *[capacity] {};
+    hash_array= new T *[capacity] {};
   }
 
 private:
-  bool insert_helper_teml(MDL_key* mdl_key, value_type *value)
+  bool insert_helper_teml(MDL_key* mdl_key, T *value)
   {
-    auto key= mdl_key->hash_value();
+    auto key= mdl_key->hash_value() % capacity;
     for (uint i= 1; i < capacity; i++)
     {
-      if (hash_array[key % capacity] == nullptr)
+      if (hash_array[key] == nullptr)
       {
-        hash_array[key % capacity]= value;
+        hash_array[key]= value;
         size++;
         return true;
       }
-      else if (hash_array[key % capacity] != value)
+      else if (hash_array[key] != value)
       {
-        key+= i;
+        key = (key + 1) % capacity;
       }
       else
       {
@@ -63,21 +71,22 @@ private:
     return false;
   };
   
+  bool is_equal(T *lhs, comp_type *rhs) { return helper::is_equal(lhs, rhs); }
 
-  bool is_equal(void* lhs, void* rhs) 
-  { 
-    return lhs == rhs;
-  }
+  //bool is_equal(void* lhs, void* rhs) 
+  //{ 
+  //  return lhs == rhs;
+  //}
 
-  bool is_equal(ticket_duration_pair *lhs, key_duration_pair *rhs) 
-  {
-    //return false;
-    return lhs->mdl_ticket->get_key()->is_equal(rhs->mdl_key) &&
-           lhs->duration == rhs->duration;
-  }
+  //bool is_equal(ticket_duration_pair *lhs, key_duration_pair *rhs) 
+  //{
+  //  //return false;
+  //  return lhs->mdl_ticket->get_key()->is_equal(rhs->mdl_key) &&
+  //         lhs->duration == rhs->duration;
+  //}
   
 public:
-  value_type *find_teml(MDL_key *mdl_key, comp_type *value)
+  T *find_teml(MDL_key *mdl_key, comp_type *value)
   {
     /* if (first.mark())
      {
@@ -90,20 +99,17 @@ public:
        return nullptr;
      }*/
 
-    auto key= mdl_key->hash_value();
+    auto key= mdl_key->hash_value() % capacity;
 
     for (uint i= 1; i < capacity; i++)
     {
-      if (hash_array[key % capacity] != nullptr)
+      if (hash_array[key] != nullptr)
       {
-        auto tt= hash_array[key % capacity];
-        /*if (hash_array[key % capacity] == value)
-          return hash_array[key % capacity];*/
-        if (is_equal(hash_array[key % capacity], value))
-          return hash_array[key % capacity];
+        if (is_equal(hash_array[key], value))
+          return hash_array[key];
         else
         {
-          key+= i;
+          key = (key + 1) % capacity;
         }
       }
       else
@@ -115,22 +121,42 @@ public:
     return nullptr;
   };
 
+private:
+    void rehash_subsequence(uint i) 
+    {
+      for (int j= i + 1; hash_array[j] != nullptr; j= (j + 1) % capacity)
+      {
+        auto key= get_key(hash_array[j])->hash_value() % capacity;
+        if (key <= j)
+        {
+          hash_array[i]= hash_array[j];
+          i= j;
+        }
+      }
+
+      hash_array[i]= nullptr;
+    }
+
+public:
+
   bool erase(MDL_key* mdl_key, comp_type* value) 
   { 
-    auto key= mdl_key->hash_value();
+    auto key= mdl_key->hash_value() % capacity;
 
     for (uint i= 1; i < capacity; i++)
     {
-      if (hash_array[key % capacity] != nullptr)
+      if (hash_array[key] != nullptr)
       {
-        if (is_equal(hash_array[key % capacity], value))
+        if (is_equal(hash_array[key], value))
         {
-          hash_array[key % capacity]= nullptr;
+          hash_array[key]= nullptr;
+          size--;
+          rehash_subsequence(key);
           return true;
         }
         else
         {
-          key+= i;
+          key = (key + 1) % capacity;
         }
       }
       else
@@ -138,6 +164,31 @@ public:
         return false;
       }
     }
+
+
+   /* while (hash_array[key % capacity] != nullptr)
+    {
+      if (is_equal(hash_array[key % capacity], value) 
+      {
+        auto erase_key= key;
+        key= (key + 1) % capacity;
+        while (hash_array[key % capacity] != nullptr ||
+               hash_array[key % capacity])
+        {
+          key= (key + 1) % capacity;          
+        }
+
+        if (hash_array[key % capacity] == nullptr) 
+        {
+          hash_array[erase_key % capacity]= nullptr;
+        }
+        else
+        {
+          
+        }
+      }
+    
+    }*/
 
     return false;
   }
@@ -176,7 +227,7 @@ public:
 
 public:
 
-  bool insert_teml(MDL_key *mdl_key, value_type *value)
+  bool insert_teml(MDL_key *mdl_key, T *value)
   {
     /*if (first.mark())
     {
@@ -213,7 +264,7 @@ public:
     if (!hash_array)
       return false;
 
-    if (std::is_same<value_type, ticket_duration_pair>::value)
+    if (std::is_same<T, ticket_duration_pair>::value)
     {
       for (uint i= 0; i < capacity; i++)
       {
@@ -240,8 +291,8 @@ private:
   class markable_reference
   {
   public:
-    void set_ptr(value_type *tl) { p= reinterpret_cast<uintptr_t>(tl); }
-    value_type *ptr() { return reinterpret_cast<value_type *>(p); }
+    void set_ptr(T *tl) { p= reinterpret_cast<uintptr_t>(tl); }
+    T *ptr() { return reinterpret_cast<T *>(p); }
 
     void set_mark(bool mark) { low_type= mark; }
     bool mark() { return low_type; };
@@ -256,11 +307,11 @@ private:
     struct
     {
       markable_reference first;
-      value_type *second;
+      T *second;
     };
     struct
     {
-      value_type **hash_array;
+      T **hash_array;
       uint32 size;
       uint32 capacity;
     };

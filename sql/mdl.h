@@ -992,6 +992,18 @@ typedef I_P_List<MDL_request, I_P_List_adapter<MDL_request,
 
 #include "local_hash.h"
 
+class ticket_helper
+{
+public:
+  using elem_type= ticket_duration_pair;
+  static MDL_key *get_key(ticket_duration_pair *el) { return el->mdl_ticket->get_key(); }
+  static bool is_equal(elem_type *lhs, key_duration_pair *rhs)
+  {
+    return lhs->mdl_ticket->get_key()->is_equal(rhs->mdl_key) &&
+           lhs->duration == rhs->duration;
+  }
+};
+
 class MDL_context
 {
 public:
@@ -1194,7 +1206,7 @@ private:
   //ticket_hash t_hash;
   
 
-  local_hash<ticket_duration_pair, key_duration_pair> ticket_hash;
+  local_hash<ticket_helper, key_duration_pair> ticket_hash;
 
 public:
   THD *get_thd() const { return m_owner->get_thd(); }
