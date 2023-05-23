@@ -2632,12 +2632,13 @@ MDL_context::upgrade_shared_lock(MDL_ticket *mdl_ticket,
 
   if (is_new_ticket)
   {
-    m_tickets[MDL_TRANSACTION].remove(mdl_xlock_request.ticket);
-    MDL_ticket::destroy(mdl_xlock_request.ticket);
     key_duration_pair *kdv=
         new key_duration_pair(mdl_xlock_request.ticket->get_key(),
                               mdl_xlock_request.ticket->m_duration);
     ticket_hash.erase(mdl_xlock_request.ticket->get_key(), kdv);
+    m_tickets[MDL_TRANSACTION].remove(mdl_xlock_request.ticket);
+    MDL_ticket::destroy(mdl_xlock_request.ticket);
+    
   }
 
   DBUG_RETURN(FALSE);
@@ -2903,14 +2904,14 @@ void MDL_context::release_lock(enum_mdl_duration duration, MDL_ticket *ticket)
   DBUG_ASSERT(this == ticket->get_ctx());
   DBUG_PRINT("mdl", ("Released: %s", dbug_print_mdl(ticket)));
 
+  key_duration_pair *kdv=
+      new key_duration_pair(ticket->get_key(), ticket->m_duration);
+  ticket_hash.erase(ticket->get_key(), kdv);
+
   lock->remove_ticket(m_pins, &MDL_lock::m_granted, ticket);
 
   m_tickets[duration].remove(ticket);
   MDL_ticket::destroy(ticket);
-  key_duration_pair *kdv=
-      new key_duration_pair(ticket->get_key(),
-                            ticket->m_duration);
-  ticket_hash.erase(ticket->get_key(), kdv);
 
   DBUG_VOID_RETURN;
 }

@@ -122,12 +122,12 @@ public:
   };
 
 private:
-    void rehash_subsequence(uint i) 
+    void rehash_subsequence(uint i)
     {
       for (int j= i + 1; hash_array[j] != nullptr; j= (j + 1) % capacity)
       {
         auto key= get_key(hash_array[j])->hash_value() % capacity;
-        if (key <= j)
+        if (key <= i || key > j)
         {
           hash_array[i]= hash_array[j];
           i= j;
@@ -136,6 +136,44 @@ private:
 
       hash_array[i]= nullptr;
     }
+
+    //void rehash_subsequence2(uint i)
+    //{
+    //  for (int j= i + 1; hash_array[j % capacity] != nullptr; j= (j + 1))
+    //  {
+    //    if (j / capacity > 0)
+    //    {
+    //      auto key= get_key(hash_array[j % capacity])->hash_value() % capacity;
+    //      if (key <= i || key > j % capacity)
+    //      {
+    //        hash_array[i]= hash_array[j % capacity];
+    //        i= j % capacity;
+    //      }
+    //    }
+    //    else
+    //    {
+    //      auto key= get_key(hash_array[j % capacity])->hash_value() % capacity;
+    //      if (key <= i)
+    //      {
+    //        hash_array[i]= hash_array[j % capacity];
+    //        i= j % capacity;
+    //      }
+    //      
+    //    }
+    //  }
+
+    //  hash_array[i]= nullptr;
+    //}
+
+  /*  void rehash_subsequence2(uint i)
+    {
+      for (int j= i + 1; hash_array[j] != nullptr; j= (j + 1) % capacity)
+      {
+        auto temp_value= hash_array[j];
+        hash_array[j]= nullptr;
+        insert_teml(get_key(hash_array[j]), temp_value);
+      }
+    }*/
 
 public:
 
