@@ -2491,10 +2491,12 @@ inline recv_sys_t::parse_mtr_result recv_sys_t::parse(store_t store, source &l)
           if (UNIV_UNLIKELY(!space_id || !page_no))
             goto record_corrupted;
 #else
-	  if (srv_is_undo_tablespace(space_id)
-	      && page_no != SRV_UNDO_TABLESPACE_SIZE_IN_PAGES)
-            goto record_corrupted;
-	  if (space_id != 0) goto record_corrupted;
+	  if (srv_is_undo_tablespace(space_id))
+	  {
+	      if (page_no != SRV_UNDO_TABLESPACE_SIZE_IN_PAGES)
+                goto record_corrupted;
+	  }
+	  else if (space_id != 0) goto record_corrupted;
           static_assert(UT_ARR_SIZE(truncated_undo_spaces) ==
                         TRX_SYS_MAX_UNDO_SPACES, "compatibility");
           /* The entire undo tablespace will be reinitialized by
