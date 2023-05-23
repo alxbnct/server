@@ -714,61 +714,7 @@ not_free:
     mini-transaction commit and the server was killed, then
     discarding the to-be-trimmed pages without flushing would
     break crash recovery. */
-    mysql_mutex_lock(&buf_pool.flush_list_mutex);
-
-    for (buf_page_t *bpage= UT_LIST_GET_LAST(buf_pool.flush_list); bpage; )
-    {
-      ut_ad(bpage->oldest_modification());
-      ut_ad(bpage->in_file());
-
-      buf_page_t *prev= UT_LIST_GET_PREV(list, bpage);
-
-      if (bpage->id().space() == space.id &&
-          bpage->oldest_modification() != 1)
-      {
-        ut_ad(bpage->frame);
-        auto block= reinterpret_cast<buf_block_t*>(bpage);
-        if (!bpage->lock.x_lock_try())
-        {
-        rescan:
-          /* Let buf_pool_t::release_freed_page() proceed. */
-          mysql_mutex_unlock(&buf_pool.flush_list_mutex);
-          mysql_mutex_lock(&buf_pool.mutex);
-          mysql_mutex_lock(&buf_pool.flush_list_mutex);
-          mysql_mutex_unlock(&buf_pool.mutex);
-          bpage= UT_LIST_GET_LAST(buf_pool.flush_list);
-          continue;
-        }
-        buf_pool.flush_hp.set(prev);
-        mysql_mutex_unlock(&buf_pool.flush_list_mutex);
-
-#ifdef BTR_CUR_HASH_ADAPT
-        ut_ad(!block->index); /* There is no AHI on undo tablespaces. */
-#endif
-        bpage->fix();
-        ut_ad(!bpage->is_io_fixed());
-        mysql_mutex_lock(&buf_pool.flush_list_mutex);
-
-        if (bpage->oldest_modification() > 1)
-        {
-          bpage->reset_oldest_modification();
-          mtr.memo_push(block, MTR_MEMO_PAGE_X_FIX);
-        }
-        else
-        {
-          bpage->unfix();
-          bpage->lock.x_unlock();
-        }
-
-        if (prev != buf_pool.flush_hp.get())
-          /* Rescan, because we may have lost the position. */
-          goto rescan;
-      }
-
-      bpage= prev;
-    }
-
-    mysql_mutex_unlock(&buf_pool.flush_list_mutex);
+    buf_flush_evict_pages(&space, 0, &mtr);
 
     /* Re-initialize tablespace, in a single mini-transaction. */
     const ulint size= SRV_UNDO_TABLESPACE_SIZE_IN_PAGES;
