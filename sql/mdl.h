@@ -884,12 +884,16 @@ class ticket_helper
 {
 public:
   using elem_type= ticket_duration_pair;
-  static MDL_key *get_key(ticket_duration_pair *el) { return el->mdl_ticket->get_key(); }
-  static bool is_equal(elem_type *lhs, key_duration_pair *rhs)
+  using comp_type= key_type_pair;
+  static MDL_key *get_key(ticket_duration_pair &el) { return el.mdl_ticket->get_key(); }
+  static bool is_equal(elem_type &lhs, key_type_pair &rhs)
   {
-    return lhs->mdl_ticket->get_key()->is_equal(rhs->mdl_key) &&
-           lhs->duration == rhs->duration;
+    return lhs.mdl_ticket->get_key()->is_equal(rhs.mdl_key) &&
+           lhs.mdl_ticket->has_stronger_or_equal_type(rhs.type);
   }
+
+  static bool is_empty(elem_type &el) { return el.mdl_ticket == nullptr; }
+  static void set_null(elem_type &el) { el.mdl_ticket = nullptr; }
 };
 
 class MDL_context
@@ -1082,7 +1086,7 @@ private:
 private:
   MDL_ticket *find_ticket(MDL_request *mdl_req,
                           enum_mdl_duration *duration);
-  MDL_ticket *find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration);
+  MDL_ticket *find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration, enum_mdl_type type);
   void release_locks_stored_before(enum_mdl_duration duration, MDL_ticket *sentinel);
   void release_lock(enum_mdl_duration duration, MDL_ticket *ticket);
   bool try_acquire_lock_impl(MDL_request *mdl_request,
@@ -1094,7 +1098,7 @@ private:
   //ticket_hash t_hash;
   
 
-  local_hash<ticket_helper, key_duration_pair> ticket_hash;
+  local_hash<ticket_helper> ticket_hash;
 
 public:
   THD *get_thd() const { return m_owner->get_thd(); }

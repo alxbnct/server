@@ -1981,13 +1981,13 @@ MDL_context::find_ticket(MDL_request *mdl_request,
   return NULL;
 }
 
-MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration)
+MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration, enum_mdl_type type)
 {
-  key_duration_pair *value= new key_duration_pair(mdl_key, duration);
+  key_type_pair value(mdl_key, type);
   auto ret_value= ticket_hash.find_teml(mdl_key, value);
-  if (ret_value == nullptr)
+  if (ret_value.mdl_ticket == nullptr)
     return nullptr;
-  return ret_value->mdl_ticket;
+  return ret_value.mdl_ticket;
 }
 
 
@@ -2075,7 +2075,7 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
     Check whether the context already holds a shared lock on the object,
     and if so, grant the request.
   */
-  auto t= find_ticket_using_hash(&mdl_request->key, mdl_request->duration);
+  auto t= find_ticket_using_hash(&mdl_request->key, mdl_request->duration, mdl_request->type);
   if ((ticket= find_ticket(mdl_request, &found_duration)))
   {
     DBUG_ASSERT(ticket->m_lock);
@@ -2122,8 +2122,7 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
   //insert ticket to hash
   //t_hash.insert(&mdl_request->key, ticket, mdl_request->duration);
   auto dur= mdl_request->duration;
-  ticket_duration_pair *templ_value=
-      new ticket_duration_pair{ticket, mdl_request->duration};
+  ticket_duration_pair templ_value {ticket, mdl_request->duration};
   ticket_hash.insert_teml(&mdl_request->key, templ_value);
 
   /* The below call implicitly locks MDL_lock::m_rwlock on success. */
@@ -2632,9 +2631,8 @@ MDL_context::upgrade_shared_lock(MDL_ticket *mdl_ticket,
 
   if (is_new_ticket)
   {
-    key_duration_pair *kdv=
-        new key_duration_pair(mdl_xlock_request.ticket->get_key(),
-                              mdl_xlock_request.ticket->m_duration);
+    key_type_pair kdv(
+        mdl_xlock_request.ticket->get_key(),  mdl_xlock_request.type);
     ticket_hash.erase(mdl_xlock_request.ticket->get_key(), kdv);
     m_tickets[MDL_TRANSACTION].remove(mdl_xlock_request.ticket);
     MDL_ticket::destroy(mdl_xlock_request.ticket);
@@ -2904,8 +2902,7 @@ void MDL_context::release_lock(enum_mdl_duration duration, MDL_ticket *ticket)
   DBUG_ASSERT(this == ticket->get_ctx());
   DBUG_PRINT("mdl", ("Released: %s", dbug_print_mdl(ticket)));
 
-  key_duration_pair *kdv=
-      new key_duration_pair(ticket->get_key(), ticket->m_duration);
+  key_type_pair kdv(ticket->get_key(), ticket->get_type());
   ticket_hash.erase(ticket->get_key(), kdv);
 
   lock->remove_ticket(m_pins, &MDL_lock::m_granted, ticket);

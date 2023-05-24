@@ -7,52 +7,63 @@
 class ticket_duration_pair
 {
 public:
-  ticket_duration_pair(MDL_ticket *_mdl_ticket, enum_mdl_duration _duration)
+  ticket_duration_pair(MDL_ticket *_mdl_ticket = nullptr, enum_mdl_duration _duration = enum_mdl_duration::MDL_STATEMENT)
   {
     mdl_ticket= _mdl_ticket;
     duration= _duration;
   }
+
+  bool operator!=(const ticket_duration_pair &other) 
+  {
+    return this->mdl_ticket != other.mdl_ticket;
+  }
+
   MDL_ticket *mdl_ticket;
   enum_mdl_duration duration;
 };
 
-class key_duration_pair
+class key_type_pair
 {
 public:
-  key_duration_pair(MDL_key *_mdl_key, enum_mdl_duration _duration)
+  key_type_pair(MDL_key *_mdl_key,
+                    enum_mdl_type _type)
   {
     mdl_key= _mdl_key;
-    duration= _duration;
+    type= _type;
   }
   MDL_key *mdl_key;
-  enum_mdl_duration duration;
+  enum_mdl_type type;
 };
 
 
 
 
-template <typename helper, typename comp_type> class local_hash
+template <typename helper> class local_hash
 {
 public:
   using T = typename helper::elem_type;
+  using comp_type = typename helper::comp_type;
 
-  MDL_key *get_key(T *elem) { return helper::get_key(elem); }
+  MDL_key *get_key(T &elem) { return helper::get_key(elem); }
+  bool is_empty(T &el) { return helper::is_empty(el); }
+  bool is_equal(T &lhs, comp_type &rhs) { return helper::is_equal(lhs, rhs); }
+  void set_null(T &el) { helper::set_null(el); }
 
   local_hash()
   {
     // first.set_mark(true);
     capacity= START_CAPACITY;
     size= 0;
-    hash_array= new T *[capacity] {};
+    hash_array= new T [capacity] {};
   }
 
 private:
-  bool insert_helper_teml(MDL_key* mdl_key, T *value)
+  bool insert_helper_teml(MDL_key* mdl_key, T value)
   {
     auto key= mdl_key->hash_value() % capacity;
     for (uint i= 1; i < capacity; i++)
     {
-      if (hash_array[key] == nullptr)
+      if (is_empty(hash_array[key]))
       {
         hash_array[key]= value;
         size++;
@@ -71,7 +82,6 @@ private:
     return false;
   };
   
-  bool is_equal(T *lhs, comp_type *rhs) { return helper::is_equal(lhs, rhs); }
 
   //bool is_equal(void* lhs, void* rhs) 
   //{ 
@@ -86,7 +96,7 @@ private:
   //}
   
 public:
-  T *find_teml(MDL_key *mdl_key, comp_type *value)
+  T find_teml(MDL_key *mdl_key, comp_type value)
   {
     /* if (first.mark())
      {
@@ -103,7 +113,7 @@ public:
 
     for (uint i= 1; i < capacity; i++)
     {
-      if (hash_array[key] != nullptr)
+      if (!is_empty(hash_array[key]))
       {
         if (is_equal(hash_array[key], value))
           return hash_array[key];
@@ -124,7 +134,7 @@ public:
 private:
     void rehash_subsequence(uint i)
     {
-      for (int j= i + 1; hash_array[j] != nullptr; j= (j + 1) % capacity)
+      for (int j= i + 1; !is_empty(hash_array[j]); j= (j + 1) % capacity)
       {
         auto key= get_key(hash_array[j])->hash_value() % capacity;
         if (key <= i || key > j)
@@ -134,60 +144,22 @@ private:
         }
       }
 
-      hash_array[i]= nullptr;
+      set_null(hash_array[i]);
     }
-
-    //void rehash_subsequence2(uint i)
-    //{
-    //  for (int j= i + 1; hash_array[j % capacity] != nullptr; j= (j + 1))
-    //  {
-    //    if (j / capacity > 0)
-    //    {
-    //      auto key= get_key(hash_array[j % capacity])->hash_value() % capacity;
-    //      if (key <= i || key > j % capacity)
-    //      {
-    //        hash_array[i]= hash_array[j % capacity];
-    //        i= j % capacity;
-    //      }
-    //    }
-    //    else
-    //    {
-    //      auto key= get_key(hash_array[j % capacity])->hash_value() % capacity;
-    //      if (key <= i)
-    //      {
-    //        hash_array[i]= hash_array[j % capacity];
-    //        i= j % capacity;
-    //      }
-    //      
-    //    }
-    //  }
-
-    //  hash_array[i]= nullptr;
-    //}
-
-  /*  void rehash_subsequence2(uint i)
-    {
-      for (int j= i + 1; hash_array[j] != nullptr; j= (j + 1) % capacity)
-      {
-        auto temp_value= hash_array[j];
-        hash_array[j]= nullptr;
-        insert_teml(get_key(hash_array[j]), temp_value);
-      }
-    }*/
-
 public:
 
-  bool erase(MDL_key* mdl_key, comp_type* value) 
+  bool erase(MDL_key* mdl_key, comp_type value) 
   { 
     auto key= mdl_key->hash_value() % capacity;
 
     for (uint i= 1; i < capacity; i++)
     {
-      if (hash_array[key] != nullptr)
+      if (!is_empty(hash_array[key]))
       {
         if (is_equal(hash_array[key], value))
         {
-          hash_array[key]= nullptr;
+          set_null(hash_array[key]);
+          //hash_array[key]= nullptr;
           size--;
           rehash_subsequence(key);
           return true;
@@ -202,31 +174,6 @@ public:
         return false;
       }
     }
-
-
-   /* while (hash_array[key % capacity] != nullptr)
-    {
-      if (is_equal(hash_array[key % capacity], value) 
-      {
-        auto erase_key= key;
-        key= (key + 1) % capacity;
-        while (hash_array[key % capacity] != nullptr ||
-               hash_array[key % capacity])
-        {
-          key= (key + 1) % capacity;          
-        }
-
-        if (hash_array[key % capacity] == nullptr) 
-        {
-          hash_array[erase_key % capacity]= nullptr;
-        }
-        else
-        {
-          
-        }
-      }
-    
-    }*/
 
     return false;
   }
@@ -265,7 +212,7 @@ public:
 
 public:
 
-  bool insert_teml(MDL_key *mdl_key, T *value)
+  bool insert_teml(MDL_key *mdl_key, T value)
   {
     /*if (first.mark())
     {
@@ -349,7 +296,7 @@ private:
     };
     struct
     {
-      T **hash_array;
+      T *hash_array;
       uint32 size;
       uint32 capacity;
     };
