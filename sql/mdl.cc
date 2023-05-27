@@ -2631,9 +2631,7 @@ MDL_context::upgrade_shared_lock(MDL_ticket *mdl_ticket,
 
   if (is_new_ticket)
   {
-    key_type_pair kdv(
-        mdl_xlock_request.ticket->get_key(),  mdl_xlock_request.type);
-    ticket_hash.erase(mdl_xlock_request.ticket->get_key(), kdv);
+    ticket_hash.erase(mdl_xlock_request.ticket);
     m_tickets[MDL_TRANSACTION].remove(mdl_xlock_request.ticket);
     MDL_ticket::destroy(mdl_xlock_request.ticket);
     
@@ -2902,8 +2900,7 @@ void MDL_context::release_lock(enum_mdl_duration duration, MDL_ticket *ticket)
   DBUG_ASSERT(this == ticket->get_ctx());
   DBUG_PRINT("mdl", ("Released: %s", dbug_print_mdl(ticket)));
 
-  key_type_pair kdv(ticket->get_key(), ticket->get_type());
-  ticket_hash.erase(ticket->get_key(), kdv);
+  ticket_hash.erase(ticket);
 
   lock->remove_ticket(m_pins, &MDL_lock::m_granted, ticket);
 

@@ -43,6 +43,7 @@ template <typename helper> class local_hash
 public:
   using T = typename helper::elem_type;
   using comp_type = typename helper::comp_type;
+  using erase_type= nullptr_t;
 
   MDL_key *get_key(T &elem) { return helper::get_key(elem); }
   bool is_empty(T &el) { return helper::is_empty(el); }
@@ -134,7 +135,7 @@ public:
 private:
     void rehash_subsequence(uint i)
     {
-      for (int j= i + 1; !is_empty(hash_array[j]); j= (j + 1) % capacity)
+      for (uint j= i + 1; !is_empty(hash_array[j]); j= (j + 1) % capacity)
       {
         auto key= get_key(hash_array[j])->hash_value() % capacity;
         if (key <= i || key > j)
@@ -148,15 +149,16 @@ private:
     }
 public:
 
-  bool erase(MDL_key* mdl_key, comp_type value) 
+  bool erase(const typename helper::erase_type &value) 
   { 
-    auto key= mdl_key->hash_value() % capacity;
+    //auto key= mdl_key->hash_value() % capacity;
+    auto key= helper::get_key(value)->hash_value() % capacity;
 
     for (uint i= 1; i < capacity; i++)
     {
       if (!is_empty(hash_array[key]))
       {
-        if (is_equal(hash_array[key], value))
+        if (helper::is_equal(hash_array[key], value))
         {
           set_null(hash_array[key]);
           //hash_array[key]= nullptr;

@@ -2593,6 +2593,7 @@ class table_helper
 public:
   using elem_type= TABLE_LIST*;
   using comp_type= TABLE_LIST*;
+  using erase_type= TABLE_LIST*;
   static MDL_key *get_key(TABLE_LIST *tl) { return &tl->mdl_request.key; }
 
   static bool is_equal(TABLE_LIST *lhs, TABLE_LIST *rhs) { return lhs == rhs; }

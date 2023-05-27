@@ -885,7 +885,13 @@ class ticket_helper
 public:
   using elem_type= ticket_duration_pair;
   using comp_type= key_type_pair;
+  using erase_type= MDL_ticket*;
   static MDL_key *get_key(ticket_duration_pair &el) { return el.mdl_ticket->get_key(); }
+  static MDL_key *get_key(const MDL_ticket *t) { return t->get_key(); }
+  static bool is_equal(const elem_type& lhs, const MDL_ticket* rhs)
+  {
+    return lhs.mdl_ticket == rhs;
+  }
   static bool is_equal(elem_type &lhs, key_type_pair &rhs)
   {
     return lhs.mdl_ticket->get_key()->is_equal(rhs.mdl_key) &&
