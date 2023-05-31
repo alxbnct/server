@@ -1984,10 +1984,8 @@ MDL_context::find_ticket(MDL_request *mdl_request,
 MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration, enum_mdl_type type)
 {
   key_type_pair value(mdl_key, type);
-  auto ret_value= ticket_hash.find_teml(mdl_key, value);
-  if (ret_value.mdl_ticket == nullptr)
-    return nullptr;
-  return ret_value.mdl_ticket;
+  auto ret_value= ticket_hash.find(mdl_key, value);
+  return ret_value;
 }
 
 
@@ -2122,8 +2120,7 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
   //insert ticket to hash
   //t_hash.insert(&mdl_request->key, ticket, mdl_request->duration);
   auto dur= mdl_request->duration;
-  ticket_duration_pair templ_value {ticket, mdl_request->duration};
-  ticket_hash.insert_teml(&mdl_request->key, templ_value);
+  ticket_hash.insert(&mdl_request->key, ticket);
 
   /* The below call implicitly locks MDL_lock::m_rwlock on success. */
   if (!(lock= mdl_locks.find_or_insert(m_pins, key)))

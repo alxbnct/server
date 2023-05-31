@@ -4,24 +4,6 @@
 #include <string.h>
 
 
-class ticket_duration_pair
-{
-public:
-  ticket_duration_pair(MDL_ticket *_mdl_ticket = nullptr, enum_mdl_duration _duration = enum_mdl_duration::MDL_STATEMENT)
-  {
-    mdl_ticket= _mdl_ticket;
-    duration= _duration;
-  }
-
-  bool operator!=(const ticket_duration_pair &other) 
-  {
-    return this->mdl_ticket != other.mdl_ticket;
-  }
-
-  MDL_ticket *mdl_ticket;
-  enum_mdl_duration duration;
-};
-
 class key_type_pair
 {
 public:
@@ -38,17 +20,17 @@ public:
 
 
 
-template <typename helper> class local_hash
+template <typename trait> class local_hash
 {
 public:
-  using T = typename helper::elem_type;
-  using comp_type = typename helper::comp_type;
+  using T = typename trait::elem_type;
+  using find_type = typename trait::find_type;
   using erase_type= nullptr_t;
 
-  MDL_key *get_key(T &elem) { return helper::get_key(elem); }
-  bool is_empty(T &el) { return helper::is_empty(el); }
-  bool is_equal(T &lhs, comp_type &rhs) { return helper::is_equal(lhs, rhs); }
-  void set_null(T &el) { helper::set_null(el); }
+  MDL_key *get_key(const T &elem) { return trait::get_key(elem); }
+  bool is_empty(const T &el) { return trait::is_empty(el); }
+  bool is_equal(const T &lhs, const find_type &rhs) { return trait::is_equal(lhs, rhs); }
+  void set_null(T &el) { trait::set_null(el); }
 
   local_hash()
   {
@@ -59,7 +41,7 @@ public:
   }
 
 private:
-  bool insert_helper_teml(MDL_key* mdl_key, T value)
+  bool insert_helper(const MDL_key* mdl_key, const T value)
   {
     auto key= mdl_key->hash_value() % capacity;
     for (uint i= 1; i < capacity; i++)
@@ -97,7 +79,7 @@ private:
   //}
   
 public:
-  T find_teml(MDL_key *mdl_key, comp_type value)
+  T find(const MDL_key *mdl_key, const find_type value)
   {
     /* if (first.mark())
      {
@@ -149,16 +131,16 @@ private:
     }
 public:
 
-  bool erase(const typename helper::erase_type &value) 
+  bool erase(const typename trait::erase_type &value) 
   { 
     //auto key= mdl_key->hash_value() % capacity;
-    auto key= helper::get_key(value)->hash_value() % capacity;
+    auto key= trait::get_key(value)->hash_value() % capacity;
 
     for (uint i= 1; i < capacity; i++)
     {
       if (!is_empty(hash_array[key]))
       {
-        if (helper::is_equal(hash_array[key], value))
+        if (trait::is_equal(hash_array[key], value))
         {
           set_null(hash_array[key]);
           //hash_array[key]= nullptr;
@@ -180,22 +162,22 @@ public:
     return false;
   }
 
-  void rehash(uint _capacity)
+  void rehash(const uint _capacity)
   {
-   /* uint past_capacity= capacity;
+    uint past_capacity= capacity;
     capacity= _capacity;
     auto temp_hash_array= hash_array;
-    hash_array= (value_type **) calloc(capacity, sizeof(value_type *));
+    hash_array= new T[capacity]{};
 
     for (uint i= 0; i < past_capacity; i++)
     {
       if (temp_hash_array[i])
       {
-        insert_helper(temp_hash_array[i]);
+        insert_helper(get_key(temp_hash_array[i]), temp_hash_array[i]);
       }
     }
 
-    delete[] temp_hash_array;*/
+    delete[] temp_hash_array;
     return;
   }
 
@@ -214,7 +196,7 @@ public:
 
 public:
 
-  bool insert_teml(MDL_key *mdl_key, T value)
+  bool insert(const MDL_key *mdl_key, const T value)
   {
     /*if (first.mark())
     {
@@ -239,7 +221,7 @@ public:
         LOAD_FACTOR * static_cast<double>(capacity))
       rehash(2 * capacity);
 
-    return insert_helper_teml(mdl_key, value);
+    return insert_helper(mdl_key, value);
   };
 
   
@@ -251,19 +233,9 @@ public:
     if (!hash_array)
       return false;
 
-    if (std::is_same<T, ticket_duration_pair>::value)
+    for (uint i= 0; i < capacity; i++)
     {
-      for (uint i= 0; i < capacity; i++)
-      {
-        hash_array[i]= nullptr;
-      }
-    }
-    else
-    {
-      for (uint i= 0; i < capacity; i++)
-      {
-        hash_array[i]= nullptr;
-      }
+      hash_array[i]= nullptr;
     }
 
     capacity= START_CAPACITY;

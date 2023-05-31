@@ -880,26 +880,26 @@ typedef I_P_List<MDL_request, I_P_List_adapter<MDL_request,
 
 #include "local_hash.h"
 
-class ticket_helper
+class ticket_trait
 {
 public:
-  using elem_type= ticket_duration_pair;
-  using comp_type= key_type_pair;
+  using elem_type= MDL_ticket*;
+  using find_type= key_type_pair;
   using erase_type= MDL_ticket*;
-  static MDL_key *get_key(ticket_duration_pair &el) { return el.mdl_ticket->get_key(); }
+  static MDL_key *get_key(const elem_type &el) { return el->get_key(); }
   static MDL_key *get_key(const MDL_ticket *t) { return t->get_key(); }
   static bool is_equal(const elem_type& lhs, const MDL_ticket* rhs)
   {
-    return lhs.mdl_ticket == rhs;
+    return lhs == rhs;
   }
-  static bool is_equal(elem_type &lhs, key_type_pair &rhs)
+  static bool is_equal(const elem_type &lhs, const key_type_pair &rhs)
   {
-    return lhs.mdl_ticket->get_key()->is_equal(rhs.mdl_key) &&
-           lhs.mdl_ticket->has_stronger_or_equal_type(rhs.type);
+    return lhs->get_key()->is_equal(rhs.mdl_key) &&
+           lhs->has_stronger_or_equal_type(rhs.type);
   }
 
-  static bool is_empty(elem_type &el) { return el.mdl_ticket == nullptr; }
-  static void set_null(elem_type &el) { el.mdl_ticket = nullptr; }
+  static bool is_empty(const elem_type &el) { return el == nullptr; }
+  static void set_null(elem_type &el) { el = nullptr; }
 };
 
 class MDL_context
@@ -1104,7 +1104,7 @@ private:
   //ticket_hash t_hash;
   
 
-  local_hash<ticket_helper> ticket_hash;
+  local_hash<ticket_trait> ticket_hash;
 
 public:
   THD *get_thd() const { return m_owner->get_thd(); }

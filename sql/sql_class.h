@@ -2588,16 +2588,16 @@ struct thd_async_state
 
 #include "local_hash.h"
 
-class table_helper
+class table_trait
 {
 public:
   using elem_type= TABLE_LIST*;
-  using comp_type= TABLE_LIST*;
+  using find_type= TABLE_LIST*;
   using erase_type= TABLE_LIST*;
   static MDL_key *get_key(TABLE_LIST *tl) { return &tl->mdl_request.key; }
 
-  static bool is_equal(TABLE_LIST *lhs, TABLE_LIST *rhs) { return lhs == rhs; }
-  static bool is_empty(elem_type el) { return el == nullptr; }
+  static bool is_equal(const TABLE_LIST *lhs, const TABLE_LIST *rhs) { return lhs == rhs; }
+  static bool is_empty(const elem_type el) { return el == nullptr; }
   static void set_null(elem_type &el) { el = nullptr; }
 };
 
@@ -2715,7 +2715,7 @@ public:
   */
   mutable mysql_mutex_t LOCK_thd_kill;
 
-  local_hash<table_helper> pr_table_hash;
+  local_hash<table_trait> pr_table_hash;
 
 
 
