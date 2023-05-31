@@ -44,25 +44,17 @@ private:
   bool insert_helper(const MDL_key* mdl_key, const T value)
   {
     auto key= mdl_key->hash_value() % capacity;
-    for (uint i= 1; i < capacity; i++)
+
+    while (hash_array[key] != nullptr) 
     {
-      if (is_empty(hash_array[key]))
-      {
-        hash_array[key]= value;
-        size++;
-        return true;
-      }
-      else if (hash_array[key] != value)
-      {
-        key = (key + 1) % capacity;
-      }
-      else
-      {
+      if (hash_array[key] == value)
         return false;
-      }
+      key= (key + 1) % capacity;
     }
 
-    return false;
+    hash_array[key]= value;
+    size++;
+    return true;
   };
   
 
@@ -92,23 +84,11 @@ public:
        return nullptr;
      }*/
 
-    auto key= mdl_key->hash_value() % capacity;
-
-    for (uint i= 1; i < capacity; i++)
+    for (auto key= mdl_key->hash_value() % capacity;
+         hash_array[key] != nullptr; key= (key + 1) % capacity) 
     {
-      if (!is_empty(hash_array[key]))
-      {
-        if (is_equal(hash_array[key], value))
-          return hash_array[key];
-        else
-        {
-          key = (key + 1) % capacity;
-        }
-      }
-      else
-      {
-        return nullptr;
-      }
+      if (is_equal(hash_array[key], value))
+        return hash_array[key];
     }
 
     return nullptr;
@@ -133,26 +113,14 @@ public:
 
   bool erase(const typename trait::erase_type &value) 
   { 
-    auto key= trait::get_key(value)->hash_value() % capacity;
-
-    for (uint i= 1; i < capacity; i++)
+    for (auto key= trait::get_key(value)->hash_value() % capacity;
+         hash_array[key] != nullptr; key= (key + 1) % capacity)
     {
-      if (!is_empty(hash_array[key]))
+      if (trait::is_equal(hash_array[key], value))
       {
-        if (trait::is_equal(hash_array[key], value))
-        {
-          hash_array[rehash_subsequence(key)] = nullptr;
-          size--;
-          return true;
-        }
-        else
-        {
-          key = (key + 1) % capacity;
-        }
-      }
-      else
-      {
-        return false;
+        hash_array[rehash_subsequence(key)]= nullptr;
+        size--;
+        return true;
       }
     }
 
