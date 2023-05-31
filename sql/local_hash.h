@@ -35,21 +35,22 @@ public:
   local_hash()
   {
     // first.set_mark(true);
-    capacity= START_CAPACITY;
+    //capacity= START_CAPACITY;
+    capacity= (1 << power2_start) - 1;
     size= 0;
-    hash_array= new T [capacity] {};
+    hash_array= new T [capacity + 1] {};
   }
 
 private:
   bool insert_helper(const MDL_key* mdl_key, const T value)
   {
-    auto key= mdl_key->hash_value() % capacity;
+    auto key= mdl_key->hash_value() & capacity;
 
     while (hash_array[key] != nullptr) 
     {
       if (hash_array[key] == value)
         return false;
-      key= (key + 1) % capacity;
+      key= (key + 1) & capacity;
     }
 
     hash_array[key]= value;
@@ -84,8 +85,8 @@ public:
        return nullptr;
      }*/
 
-    for (auto key= mdl_key->hash_value() % capacity;
-         hash_array[key] != nullptr; key= (key + 1) % capacity) 
+    for (auto key= mdl_key->hash_value() & capacity;
+         hash_array[key] != nullptr; key= (key + 1) & capacity) 
     {
       if (is_equal(hash_array[key], value))
         return hash_array[key];
@@ -97,9 +98,9 @@ public:
 private:
     uint rehash_subsequence(uint i)
     {
-      for (uint j= i + 1; !is_empty(hash_array[j]); j= (j + 1) % capacity)
+      for (uint j= i + 1; hash_array[j] != nullptr; j= (j + 1) & capacity)
       {
-        auto key= get_key(hash_array[j])->hash_value() % capacity;
+        auto key= get_key(hash_array[j])->hash_value() & capacity;
         if (key <= i || key > j)
         {
           hash_array[i]= hash_array[j];
@@ -113,8 +114,12 @@ public:
 
   bool erase(const typename trait::erase_type &value) 
   { 
-    for (auto key= trait::get_key(value)->hash_value() % capacity;
-         hash_array[key] != nullptr; key= (key + 1) % capacity)
+    /*if (static_cast<double>(size - 1) <
+        LOW_LOAD_FACTOR * static_cast<double>(capacity))
+      rehash(0.5 * capacity);*/
+
+    for (auto key= trait::get_key(value)->hash_value() & capacity;
+         hash_array[key] != nullptr; key= (key + 1) & capacity)
     {
       if (trait::is_equal(hash_array[key], value))
       {
@@ -132,7 +137,8 @@ public:
     uint past_capacity= capacity;
     capacity= _capacity;
     auto temp_hash_array= hash_array;
-    hash_array= new T[capacity]{};
+    hash_array= new T[capacity + 1]{};
+    size= 0;
 
     for (uint i= 0; i < past_capacity; i++)
     {
@@ -182,9 +188,8 @@ public:
       }
     }*/
 
-    if (static_cast<double>(size + 1) >
-        LOAD_FACTOR * static_cast<double>(capacity))
-      rehash(2 * capacity);
+    if (size + 1 > MAX_LOAD_FACTOR * capacity)
+      rehash((capacity << 1) | 1);
 
     return insert_helper(mdl_key, value);
   };
@@ -203,13 +208,15 @@ public:
       hash_array[i]= nullptr;
     }
 
-    capacity= START_CAPACITY;
+    capacity= (1 << power2_start) - 1;
     return true;
   }
 
 private:
-  static constexpr uint START_CAPACITY= 256;
-  static constexpr double LOAD_FACTOR= 0.5f;
+  static constexpr uint power2_start= 2;
+  //static constexpr uint START_CAPACITY= 256;
+  static constexpr double MAX_LOAD_FACTOR= 0.5f;
+  static constexpr double LOW_LOAD_FACTOR= 0.05f;
 
 
   class markable_reference
