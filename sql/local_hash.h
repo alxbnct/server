@@ -25,7 +25,7 @@ template <typename trait> class local_hash
 public:
   using T = typename trait::elem_type;
   using find_type = typename trait::find_type;
-  using erase_type= nullptr_t;
+  using erase_type= typename trait::erase_type;
 
   MDL_key *get_key(const T &elem) { return trait::get_key(elem); }
   bool is_empty(const T &el) { return trait::is_empty(el); }
@@ -112,7 +112,7 @@ private:
     }
 public:
 
-  bool erase(const typename trait::erase_type &value) 
+  bool erase(const erase_type &value) 
   { 
     /*if (static_cast<double>(size - 1) <
         LOW_LOAD_FACTOR * static_cast<double>(capacity))
