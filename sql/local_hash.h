@@ -44,7 +44,7 @@ public:
 private:
   bool insert_helper(const MDL_key* mdl_key, const T value)
   {
-    auto key= mdl_key->hash_value() & capacity;
+    auto key= mdl_key->tc_hash_value() & capacity;
 
     while (hash_array[key] != nullptr) 
     {
@@ -85,7 +85,7 @@ public:
        return nullptr;
      }*/
 
-    for (auto key= mdl_key->hash_value() & capacity;
+    for (auto key= mdl_key->tc_hash_value() & capacity;
          hash_array[key] != nullptr; key= (key + 1) & capacity) 
     {
       if (is_equal(hash_array[key], value))
@@ -100,7 +100,7 @@ private:
     {
       for (uint j= i + 1; hash_array[j] != nullptr; j= (j + 1) & capacity)
       {
-        auto key= get_key(hash_array[j])->hash_value() & capacity;
+        auto key= get_key(hash_array[j])->tc_hash_value() & capacity;
         if (key <= i || key > j)
         {
           hash_array[i]= hash_array[j];
@@ -118,7 +118,7 @@ public:
         LOW_LOAD_FACTOR * static_cast<double>(capacity))
       rehash(0.5 * capacity);*/
 
-    for (auto key= trait::get_key(value)->hash_value() & capacity;
+    for (auto key= trait::get_key(value)->tc_hash_value() & capacity;
          hash_array[key] != nullptr; key= (key + 1) & capacity)
     {
       if (trait::is_equal(hash_array[key], value))
