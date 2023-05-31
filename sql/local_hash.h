@@ -115,7 +115,7 @@ public:
   };
 
 private:
-    void rehash_subsequence(uint i)
+    uint rehash_subsequence(uint i)
     {
       for (uint j= i + 1; !is_empty(hash_array[j]); j= (j + 1) % capacity)
       {
@@ -127,13 +127,12 @@ private:
         }
       }
 
-      set_null(hash_array[i]);
+      return i;
     }
 public:
 
   bool erase(const typename trait::erase_type &value) 
   { 
-    //auto key= mdl_key->hash_value() % capacity;
     auto key= trait::get_key(value)->hash_value() % capacity;
 
     for (uint i= 1; i < capacity; i++)
@@ -142,10 +141,8 @@ public:
       {
         if (trait::is_equal(hash_array[key], value))
         {
-          set_null(hash_array[key]);
-          //hash_array[key]= nullptr;
+          hash_array[rehash_subsequence(key)] = nullptr;
           size--;
-          rehash_subsequence(key);
           return true;
         }
         else
