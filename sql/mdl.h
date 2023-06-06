@@ -873,22 +873,19 @@ typedef I_P_List<MDL_request, I_P_List_adapter<MDL_request,
                  I_P_List_counter>
         MDL_request_list;
 
-/**
-  Context of the owner of metadata locks. I.e. each server
-  connection has such a context.
-*/
+
 
 #include "local_hash.h"
 
 class ticket_trait
 {
 public:
-  using elem_type= MDL_ticket*;
+  using elem_type= MDL_ticket *;
   using find_type= key_type_pair;
-  using erase_type= MDL_ticket*;
+  using erase_type= MDL_ticket *;
   static MDL_key *get_key(const elem_type &el) { return el->get_key(); }
   static MDL_key *get_key(const MDL_ticket *t) { return t->get_key(); }
-  static bool is_equal(const elem_type& lhs, const MDL_ticket* rhs)
+  static bool is_equal(const elem_type &lhs, const MDL_ticket *rhs)
   {
     return lhs == rhs;
   }
@@ -899,8 +896,14 @@ public:
   }
 
   static bool is_empty(const elem_type &el) { return el == nullptr; }
-  static void set_null(elem_type &el) { el = nullptr; }
+  static void set_null(elem_type &el) { el= nullptr; }
 };
+
+
+/**
+  Context of the owner of metadata locks. I.e. each server
+  connection has such a context.
+*/
 
 class MDL_context
 {
@@ -1097,12 +1100,7 @@ private:
   void release_lock(enum_mdl_duration duration, MDL_ticket *ticket);
   bool try_acquire_lock_impl(MDL_request *mdl_request,
                              MDL_ticket **out_ticket);
-  bool fix_pins();
-
-
-  
-  //ticket_hash t_hash;
-  
+  bool fix_pins();  
 
   local_hash<ticket_trait> ticket_hash;
 

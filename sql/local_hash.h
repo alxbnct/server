@@ -41,6 +41,17 @@ public:
     hash_array= new T [capacity + 1] {};
   }
 
+  /*~local_hash() 
+  { 
+    for (int i= 0; i < capacity; i++)
+    {
+      hash_array[i]= nullptr;
+    }
+    
+    size= 0;
+    capacity= 0;
+  }*/
+
 private:
   bool insert_helper(const MDL_key* mdl_key, const T value)
   {
@@ -58,18 +69,6 @@ private:
     return true;
   };
   
-
-  //bool is_equal(void* lhs, void* rhs) 
-  //{ 
-  //  return lhs == rhs;
-  //}
-
-  //bool is_equal(ticket_duration_pair *lhs, key_duration_pair *rhs) 
-  //{
-  //  //return false;
-  //  return lhs->mdl_ticket->get_key()->is_equal(rhs->mdl_key) &&
-  //         lhs->duration == rhs->duration;
-  //}
   
 public:
   T find(const MDL_key *mdl_key, const find_type value)
@@ -98,7 +97,7 @@ public:
 private:
     uint rehash_subsequence(uint i)
     {
-      for (uint j= i + 1; hash_array[j] != nullptr; j= (j + 1) & capacity)
+      for (uint j= (i + 1) & capacity; hash_array[j] != nullptr; j= (j + 1) & capacity)
       {
         auto key= get_key(hash_array[j])->tc_hash_value() & capacity;
         if (key <= i || key > j)
@@ -110,26 +109,50 @@ private:
 
       return i;
     }
-public:
+
+    bool erase_helper(const erase_type& value) 
+    {
+      for (auto key= trait::get_key(value)->tc_hash_value() & capacity;
+           hash_array[key] != nullptr; key= (key + 1) & capacity)
+      {
+        if (trait::is_equal(hash_array[key], value))
+        {
+          hash_array[rehash_subsequence(key)]= nullptr;
+          size--;
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+  public:
 
   bool erase(const erase_type &value) 
   { 
-    /*if (static_cast<double>(size - 1) <
-        LOW_LOAD_FACTOR * static_cast<double>(capacity))
-      rehash(0.5 * capacity);*/
-
-    for (auto key= trait::get_key(value)->tc_hash_value() & capacity;
-         hash_array[key] != nullptr; key= (key + 1) & capacity)
+    /*if (first.mark())
     {
-      if (trait::is_equal(hash_array[key], value))
+      if (first.ptr() != nullptr && is_equal(first.ptr(), value))
       {
-        hash_array[rehash_subsequence(key)]= nullptr;
-        size--;
+        first.ptr() = nullptr;
         return true;
       }
-    }
+      else if (!second && is_equal(second, value))
+      {
+        second= nullptr;
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+    }*/
 
-    return false;
+    if (capacity > 7 && static_cast<double>(size - 1) <
+        LOW_LOAD_FACTOR * static_cast<double>(capacity))
+      rehash(0.5 * capacity);
+
+    return erase_helper(value);
   }
 
   void rehash(const uint _capacity)
@@ -214,9 +237,8 @@ public:
 
 private:
   static constexpr uint power2_start= 2;
-  //static constexpr uint START_CAPACITY= 256;
   static constexpr double MAX_LOAD_FACTOR= 0.5f;
-  static constexpr double LOW_LOAD_FACTOR= 0.05f;
+  static constexpr double LOW_LOAD_FACTOR= 0.1f;
 
 
   class markable_reference
