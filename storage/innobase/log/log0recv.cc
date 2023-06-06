@@ -1411,6 +1411,7 @@ void recv_sys_t::create()
 	recv_max_page_lsn = 0;
 
 	memset(truncated_undo_spaces, 0, sizeof truncated_undo_spaces);
+	truncated_sys_space= {0, 0};
 	UT_LIST_INIT(blocks, &buf_block_t::unzip_LRU);
 }
 
@@ -2758,17 +2759,23 @@ recv_sys_t::parse_mtr_result recv_sys_t::parse(source &l, bool if_exists)
           if (UNIV_UNLIKELY(!space_id || !page_no))
             goto record_corrupted;
 #else
-          if (!srv_is_undo_tablespace(space_id) ||
-              page_no != SRV_UNDO_TABLESPACE_SIZE_IN_PAGES)
-            goto record_corrupted;
+	  if (srv_is_undo_tablespace(space_id))
+	  {
+	      if (page_no != SRV_UNDO_TABLESPACE_SIZE_IN_PAGES)
+                goto record_corrupted;
+	  }
+	  else if (space_id != 0) goto record_corrupted;
           static_assert(UT_ARR_SIZE(truncated_undo_spaces) ==
                         TRX_SYS_MAX_UNDO_SPACES, "compatibility");
           /* The entire undo tablespace will be reinitialized by
           innodb_undo_log_truncate=ON. Discard old log for all pages. */
           trim({space_id, 0}, lsn);
-          truncated_undo_spaces[space_id - srv_undo_space_id_start]=
+	  if (space_id == 0)
+            truncated_sys_space={ lsn, page_no};
+	  else
+            truncated_undo_spaces[space_id - srv_undo_space_id_start]=
             { lsn, page_no };
-          if (!store && undo_space_trunc)
+          if (!store && undo_space_trunc && space_id > 0)
             undo_space_trunc(space_id);
 #endif
           last_offset= 1; /* the next record must not be same_page  */
@@ -3832,6 +3839,29 @@ void recv_sys_t::apply(bool last_batch)
     report_progress();
 
     apply_log_recs= true;
+
+    if (truncated_sys_space.lsn)
+    {
+      trim({0, truncated_sys_space.pages}, truncated_sys_space.lsn);
+      mysql_mutex_unlock(&mutex);
+      mtr_t trunc_mtr;
+      trunc_mtr.start();
+      buf_block_t *block= buf_page_get(
+        page_id_t(0, 0), 0, RW_S_LATCH, &trunc_mtr);
+      const lsn_t page_lsn= mach_read_from_8(
+        block->page.frame + FIL_PAGE_LSN);
+      trunc_mtr.commit();
+      mysql_mutex_lock(&mutex);
+      if (page_lsn <= truncated_sys_space.lsn)
+      {
+        fil_node_t *file= UT_LIST_GET_LAST(
+	  fil_system.sys_space->chain);
+        ut_ad(file->is_open());
+        os_file_truncate(
+          file->name, file->handle,
+          os_offset_t{truncated_sys_space.pages} << srv_page_size_shift, true);
+      }
+    }
 
     for (auto id= srv_undo_tablespaces_open; id--;)
     {
