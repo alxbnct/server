@@ -34,11 +34,12 @@ public:
 
   local_hash()
   {
-    // first.set_mark(true);
-    //capacity= START_CAPACITY;
-    capacity= (1 << power2_start) - 1;
+    first.set_mark(true);
+    first.set_ptr(nullptr);
+    second= nullptr;
+    /*capacity= (1 << power2_start) - 1;
     size= 0;
-    hash_array= new T [capacity + 1] {};
+    hash_array= new T [capacity + 1] {};*/
   }
 
   /*~local_hash() 
@@ -53,7 +54,7 @@ public:
   }*/
 
 private:
-  bool insert_helper(const MDL_key* mdl_key, const T value)
+  bool insert_helper( MDL_key* mdl_key, T value)
   {
     auto key= mdl_key->tc_hash_value() & capacity;
 
@@ -73,16 +74,15 @@ private:
 public:
   T find(const MDL_key *mdl_key, const find_type value)
   {
-    /* if (first.mark())
+     if (first.mark())
      {
-       if (first.ptr() && !strcmp(first.ptr()->get_table_name(), table_name) &&
-           !strcmp(first.ptr()->get_db_name(), db_name))
+       if (first.ptr() && is_equal(first.ptr(), value))
          return first.ptr();
-       if (second != nullptr && !strcmp(second->get_table_name(), table_name)
-     && !strcmp(second->get_db_name(), db_name)) return second;
+       if (second != nullptr && is_equal(second, value)) 
+           return second;
 
        return nullptr;
-     }*/
+     }
 
     for (auto key= mdl_key->tc_hash_value() & capacity;
          hash_array[key] != nullptr; key= (key + 1) & capacity) 
@@ -130,14 +130,14 @@ private:
 
   bool erase(const erase_type &value) 
   { 
-    /*if (first.mark())
+    if (first.mark())
     {
-      if (first.ptr() != nullptr && is_equal(first.ptr(), value))
+      if (first.ptr() != nullptr && trait::is_equal(first.ptr(), value))
       {
-        first.ptr() = nullptr;
+        first.set_ptr(nullptr);
         return true;
       }
-      else if (!second && is_equal(second, value))
+      else if (!second && trait::is_equal(second, value))
       {
         second= nullptr;
         return true;
@@ -146,7 +146,7 @@ private:
       {
         return false;
       }
-    }*/
+    }
 
     if (capacity > 7 && static_cast<double>(size - 1) <
         LOW_LOAD_FACTOR * static_cast<double>(capacity))
@@ -175,33 +175,37 @@ private:
     return;
   }
 
-  /*void init_hash_array()
+  void init_hash_array()
   {
-    TABLE_LIST *_first= first.ptr();
-    TABLE_LIST *_second= second;
+    T _first= first.ptr();
+    T _second= second;
 
-    capacity= START_CAPACITY;
+    /*capacity= START_CAPACITY;
     hash_array= (TABLE_LIST **) calloc(capacity, sizeof(TABLE_LIST *));
-    size= 0;
+    size= 0;*/
 
-    insert_helper(_first);
-    insert_helper(_second);
-  }*/
+    capacity= (1 << power2_start) - 1;
+    size= 0;
+    hash_array= new T [capacity + 1] {};
+
+    insert_helper(get_key(_first), _first);
+    insert_helper(get_key(_second), _second);
+  }
 
 public:
 
-  bool insert(const MDL_key *mdl_key, const T value)
+  bool insert( MDL_key *mdl_key, T value)
   {
-    /*if (first.mark())
+    if (first.mark())
     {
       if (!first.ptr())
       {
-        first.set_ptr(tl);
+        first.set_ptr(value);
         return true;
       }
       else if (!second)
       {
-        second= tl;
+        second= value;
         return true;
       }
       else
@@ -209,7 +213,7 @@ public:
         first.set_mark(false);
         init_hash_array();
       }
-    }*/
+    }
 
     if (size + 1 > MAX_LOAD_FACTOR * capacity)
       rehash((capacity << 1) | 1);
@@ -220,9 +224,12 @@ public:
   
   bool clear()
   {
-    /*if (!hash_array || first.mark())
-      return false;*/
-
+    if (first.mark())
+    {
+      first.set_ptr(nullptr);
+      second= nullptr;
+      return true;
+    }
     if (!hash_array)
       return false;
 
@@ -244,8 +251,8 @@ private:
   class markable_reference
   {
   public:
-    void set_ptr(T *tl) { p= reinterpret_cast<uintptr_t>(tl); }
-    T *ptr() { return reinterpret_cast<T *>(p); }
+    void set_ptr(T ptr) { p= reinterpret_cast<uintptr_t>(ptr); }
+    T ptr() { return reinterpret_cast<T>(p); }
 
     void set_mark(bool mark) { low_type= mark; }
     bool mark() { return low_type; };
@@ -260,7 +267,7 @@ private:
     struct
     {
       markable_reference first;
-      T *second;
+      T second;
     };
     struct
     {
