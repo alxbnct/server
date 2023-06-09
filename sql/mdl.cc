@@ -1981,11 +1981,10 @@ MDL_context::find_ticket(MDL_request *mdl_request,
   return NULL;
 }
 
-MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key,
-                                                enum_mdl_type type)
+MDL_ticket *MDL_context::find_ticket_using_hash(MDL_request* mdl_request)
 {
-  key_type_pair value(mdl_key, type);
-  auto ret_value= ticket_hash.find(mdl_key, value);
+  key_type_pair value(&mdl_request->key, mdl_request->type);
+  auto ret_value= ticket_hash.find(&mdl_request->key, value);
   return ret_value;
 }
 
@@ -2075,7 +2074,7 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
     and if so, grant the request.
   */
   //auto t= find_ticket_using_hash(&mdl_request->key, mdl_request->type, &found_duration);
-  if ((ticket= find_ticket_using_hash(&mdl_request->key, mdl_request->type)))
+  if ((ticket= find_ticket_using_hash(mdl_request)))
   {
     DBUG_ASSERT(ticket->m_lock);
     DBUG_ASSERT(ticket->has_stronger_or_equal_type(mdl_request->type));
