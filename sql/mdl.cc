@@ -1982,12 +1982,10 @@ MDL_context::find_ticket(MDL_request *mdl_request,
 }
 
 MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key,
-                                                enum_mdl_type type,
-                                                enum_mdl_duration* duration)
+                                                enum_mdl_type type)
 {
   key_type_pair value(mdl_key, type);
   auto ret_value= ticket_hash.find(mdl_key, value);
-  duration= &ret_value->m_duration;
   return ret_value;
 }
 
@@ -2066,7 +2064,7 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
   MDL_lock *lock;
   MDL_key *key= &mdl_request->key;
   MDL_ticket *ticket;
-  enum_mdl_duration found_duration;
+  //enum_mdl_duration found_duration;
 
   /* Don't take chances in production. */
   DBUG_ASSERT(mdl_request->ticket == NULL);
@@ -2077,8 +2075,7 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
     and if so, grant the request.
   */
   //auto t= find_ticket_using_hash(&mdl_request->key, mdl_request->type, &found_duration);
-  if ((ticket= find_ticket_using_hash(&mdl_request->key, mdl_request->type,
-                                      &found_duration)))
+  if ((ticket= find_ticket_using_hash(&mdl_request->key, mdl_request->type)))
   {
     DBUG_ASSERT(ticket->m_lock);
     DBUG_ASSERT(ticket->has_stronger_or_equal_type(mdl_request->type));
@@ -2100,7 +2097,7 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
       a different alias.
     */
     mdl_request->ticket= ticket;
-    if ((found_duration != mdl_request->duration ||
+    if ((ticket->m_duration != mdl_request->duration ||
          mdl_request->duration == MDL_EXPLICIT) &&
         clone_ticket(mdl_request))
     {
