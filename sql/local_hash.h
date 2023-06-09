@@ -42,16 +42,11 @@ public:
     hash_array= new T [capacity + 1] {};*/
   }
 
-  /*~local_hash() 
+  ~local_hash() 
   { 
-    for (int i= 0; i < capacity; i++)
-    {
-      hash_array[i]= nullptr;
-    }
-    
-    size= 0;
-    capacity= 0;
-  }*/
+    if (hash_array && !first.mark())
+      delete[] hash_array; 
+  }
 
 private:
   bool insert_helper( MDL_key* mdl_key, T value)
