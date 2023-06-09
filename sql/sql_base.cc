@@ -4841,10 +4841,10 @@ prepare_fk_prelocking_list(THD *thd, Query_tables_list *prelocking_ctx,
     else
       lock_type= TL_READ;
 
-    TABLE_LIST *tl= find_fk_prelocked_table(prelocking_ctx->query_tables,
-                                            fk->foreign_db, fk->foreign_table,
-                                            lock_type);
-    TABLE_LIST *test_tl= find_fk_prelocked_table_using_hash(
+    //TABLE_LIST *tl= find_fk_prelocked_table(prelocking_ctx->query_tables,
+    //                                        fk->foreign_db, fk->foreign_table,
+    //                                        lock_type);
+    TABLE_LIST *tl= find_fk_prelocked_table_using_hash(
         thd, prelocking_ctx->query_tables, fk->foreign_db,
                                 fk->foreign_table, lock_type);
     if (tl == NULL)

@@ -1981,10 +1981,13 @@ MDL_context::find_ticket(MDL_request *mdl_request,
   return NULL;
 }
 
-MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key, enum_mdl_duration duration, enum_mdl_type type)
+MDL_ticket *MDL_context::find_ticket_using_hash(MDL_key *mdl_key,
+                                                enum_mdl_type type,
+                                                enum_mdl_duration* duration)
 {
   key_type_pair value(mdl_key, type);
   auto ret_value= ticket_hash.find(mdl_key, value);
+  duration= &ret_value->m_duration;
   return ret_value;
 }
 
@@ -2073,8 +2076,9 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
     Check whether the context already holds a shared lock on the object,
     and if so, grant the request.
   */
-  auto t= find_ticket_using_hash(&mdl_request->key, mdl_request->duration, mdl_request->type);
-  if ((ticket= find_ticket(mdl_request, &found_duration)))
+  //auto t= find_ticket_using_hash(&mdl_request->key, mdl_request->type, &found_duration);
+  if ((ticket= find_ticket_using_hash(&mdl_request->key, mdl_request->type,
+                                      &found_duration)))
   {
     DBUG_ASSERT(ticket->m_lock);
     DBUG_ASSERT(ticket->has_stronger_or_equal_type(mdl_request->type));
