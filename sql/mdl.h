@@ -1095,7 +1095,7 @@ private:
 private:
   MDL_ticket *find_ticket(MDL_request *mdl_req,
                           enum_mdl_duration *duration);
-  MDL_ticket *find_ticket_using_hash(MDL_request* mdl_request);
+  MDL_ticket *find_ticket_using_hash(MDL_request *mdl_request, enum_mdl_duration *result_duration);
   void release_locks_stored_before(enum_mdl_duration duration, MDL_ticket *sentinel);
   void release_lock(enum_mdl_duration duration, MDL_ticket *ticket);
   bool try_acquire_lock_impl(MDL_request *mdl_request,
