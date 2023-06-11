@@ -1049,16 +1049,16 @@ void MDL_request::init_by_key_with_source(const MDL_key *key_arg,
 */
 
 MDL_ticket *MDL_ticket::create(MDL_context *ctx_arg, enum_mdl_type type_arg
-#ifndef DBUG_OFF
+//#ifndef DBUG_OFF
                                , enum_mdl_duration duration_arg
-#endif
+//#endif
                                )
 {
   return new (std::nothrow)
              MDL_ticket(ctx_arg, type_arg
-#ifndef DBUG_OFF
+//#ifndef DBUG_OFF
                         , duration_arg
-#endif
+//#endif
                         );
 }
 
@@ -1985,8 +1985,10 @@ MDL_ticket *MDL_context::find_ticket_using_hash(MDL_request *mdl_request, enum_m
 {
   key_type_pair value(&mdl_request->key, mdl_request->type);
   auto ret_value= ticket_hash.find(&mdl_request->key, value);
+//#ifndef DBUG_OFF
   if (ret_value)
     *result_duration= ret_value->m_duration;
+//#endif
   return ret_value;
 }
 
@@ -2113,9 +2115,9 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
     return TRUE;
 
   if (!(ticket= MDL_ticket::create(this, mdl_request->type
-#ifndef DBUG_OFF
+//#ifndef DBUG_OFF
                                    , mdl_request->duration
-#endif
+//#endif
                                    )))
     return TRUE;
 
@@ -2196,9 +2198,9 @@ MDL_context::clone_ticket(MDL_request *mdl_request)
     the request.
   */
   if (!(ticket= MDL_ticket::create(this, mdl_request->type
-#ifndef DBUG_OFF
+//#ifndef DBUG_OFF
                                    , mdl_request->duration
-#endif
+//#endif
                                    )))
     return TRUE;
 

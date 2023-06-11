@@ -748,14 +748,14 @@ private:
   friend class MDL_context;
 
   MDL_ticket(MDL_context *ctx_arg, enum_mdl_type type_arg
-#ifndef DBUG_OFF
+//#ifndef DBUG_OFF
              , enum_mdl_duration duration_arg
-#endif
+//#endif
             )
    : m_type(type_arg),
-#ifndef DBUG_OFF
+//#ifndef DBUG_OFF
      m_duration(duration_arg),
-#endif
+//#endif
      m_ctx(ctx_arg),
      m_lock(NULL),
      m_psi(NULL)
@@ -767,21 +767,21 @@ private:
   }
 
   static MDL_ticket *create(MDL_context *ctx_arg, enum_mdl_type type_arg
-#ifndef DBUG_OFF
+//#ifndef DBUG_OFF
                             , enum_mdl_duration duration_arg
-#endif
+//#endif
                             );
   static void destroy(MDL_ticket *ticket);
 private:
   /** Type of metadata lock. Externally accessible. */
   enum enum_mdl_type m_type;
-#ifndef DBUG_OFF
+//#ifndef DBUG_OFF
   /**
     Duration of lock represented by this ticket.
     Context private. Debug-only.
   */
   enum_mdl_duration m_duration;
-#endif
+//#endif
   /**
     Context of the owner of the metadata lock ticket. Externally accessible.
   */
