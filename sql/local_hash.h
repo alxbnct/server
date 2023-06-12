@@ -29,7 +29,6 @@ public:
 
   MDL_key *get_key(const T &elem) { return trait::get_key(elem); }
   bool is_empty(const T &el) { return trait::is_empty(el); }
-  bool is_equal(const T &lhs, const find_type &rhs) { return trait::is_equal(lhs, rhs); }
   void set_null(T &el) { trait::set_null(el); }
 
   local_hash()
@@ -67,13 +66,19 @@ private:
   
   
 public:
-  T find(const MDL_key *mdl_key, const find_type value)
+  T find(const T& elem)
+  {
+    return find(trait::get_key(elem),
+                [&elem](const T& rhs){ return rhs == elem; });
+  }
+  template<typename Func>
+  T find(const MDL_key *mdl_key, const Func &elem_suits)
   {
      if (first.mark())
      {
-       if (first.ptr() && is_equal(first.ptr(), value))
+       if (first.ptr() && elem_suits(first.ptr()))
          return first.ptr();
-       if (second != nullptr && is_equal(second, value)) 
+       if (second != nullptr && elem_suits(second))
            return second;
 
        return nullptr;
@@ -82,7 +87,7 @@ public:
     for (auto key= mdl_key->tc_hash_value() & capacity;
          hash_array[key] != nullptr; key= (key + 1) & capacity) 
     {
-      if (is_equal(hash_array[key], value))
+      if (elem_suits(hash_array[key]))
         return hash_array[key];
     }
 

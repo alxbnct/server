@@ -4729,7 +4729,7 @@ TABLE_LIST *find_fk_prelocked_table_using_hash(THD *thd, TABLE_LIST *tl, LEX_CST
                                     thr_lock_type lock_type)
 {
   /*return thd->pr_table_hash.find(db->str, table->str, &tl->mdl_request.key);*/
-   return thd->pr_table_hash.find(&tl->mdl_request.key, tl);
+   return thd->pr_table_hash.find(tl);
 }
 
 

@@ -1983,8 +1983,12 @@ MDL_context::find_ticket(MDL_request *mdl_request,
 
 MDL_ticket *MDL_context::find_ticket_using_hash(MDL_request *mdl_request, enum_mdl_duration* result_duration)
 {
-  key_type_pair value(&mdl_request->key, mdl_request->type);
-  auto ret_value= ticket_hash.find(&mdl_request->key, value);
+  const auto &ticket_fits= [&mdl_request](const MDL_ticket *t)
+  {
+    return mdl_request->key.is_equal(t->get_key()) &&
+           t->has_stronger_or_equal_type(mdl_request->type);
+  };
+  auto ret_value= ticket_hash.find(&mdl_request->key, ticket_fits);
 //#ifndef DBUG_OFF
   if (ret_value)
     *result_duration= ret_value->m_duration;
@@ -2901,11 +2905,9 @@ void MDL_context::release_lock(enum_mdl_duration duration, MDL_ticket *ticket)
   DBUG_ASSERT(this == ticket->get_ctx());
   DBUG_PRINT("mdl", ("Released: %s", dbug_print_mdl(ticket)));
 
-  //ticket_hash.erase(ticket);
   bool success= ticket_hash.erase(ticket);
-      DBUG_ASSERT(success);
-  key_type_pair ktp{ticket->get_key(), ticket->get_type()};
-  DBUG_ASSERT(ticket_hash.find(ticket->get_key(), ktp) == NULL);
+  DBUG_ASSERT(success);
+  DBUG_ASSERT(ticket_hash.find(ticket) == NULL);
 
   lock->remove_ticket(m_pins, &MDL_lock::m_granted, ticket);
 
