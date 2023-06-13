@@ -107,6 +107,15 @@ static const LEX_CSTRING write_error_msg=
     { STRING_WITH_LEN("error writing to the binary log") };
 
 static my_bool opt_optimize_thread_scheduling= TRUE;
+/*
+  The binlog_checksum_options value is accessed protected under LOCK_log. As
+  the checksum option used must be consistent across an entire binlog file,
+  and log rotation is needed whenever this is changed.
+
+  As an exception, event checksums are precomputed using a non-locked read
+  of binlog_checksum_options. Thus updates to this variable must be atomic,
+  with relaxed semantics.
+*/
 ulong binlog_checksum_options;
 #ifndef DBUG_OFF
 ulong opt_binlog_dbug_fsync_sleep= 0;
@@ -277,7 +286,7 @@ class binlog_cache_data
 public:
   binlog_cache_data(): m_pending(0), status(0),
   before_stmt_pos(MY_OFF_T_UNDEF),
-  incident(FALSE),
+  incident(FALSE), checksum_opt(BINLOG_CHECKSUM_ALG_UNDEF),
   saved_max_binlog_cache_size(0), ptr_binlog_cache_use(0),
   ptr_binlog_cache_disk_use(0)
   { }
@@ -332,6 +341,14 @@ public:
     bool truncate_file= (cache_log.file != -1 &&
                          my_b_write_tell(&cache_log) > CACHE_FILE_TRUNC_SIZE);
     truncate(0,1);                              // Forget what's in cache
+    /*
+      Read the current checksum setting. We will use this setting to decide
+      whether to pre-compute checksums in the cache. Then when writing the cache
+      to the actual binlog, another check will be made and checksums recomputed
+      in the unlikely case that the setting changed meanwhile.
+    */
+    checksum_opt= my_atomic_loadul_explicit(&binlog_checksum_options,
+                                            MY_MEMORY_ORDER_RELAXED);
     if (!cache_was_empty)
       compute_statistics();
     if (truncate_file)
@@ -435,6 +452,14 @@ private:
   */ 
   bool incident;
 
+public:
+  /*
+    The algorithm (if any) used to pre-compute checksums in the cache.
+    Initialized from binlog_checksum_options when the cache is reset.
+  */
+  uchar checksum_opt;
+
+private:
   /**
     This function computes binlog cache and disk usage.
   */
@@ -5527,7 +5552,8 @@ int MYSQL_BIN_LOG::new_file_impl()
   {
     DBUG_ASSERT(!is_relay_log);
     DBUG_ASSERT(binlog_checksum_options != checksum_alg_reset);
-    binlog_checksum_options= checksum_alg_reset;
+    my_atomic_storeul_explicit(&binlog_checksum_options, checksum_alg_reset,
+                               MY_MEMORY_ORDER_RELAXED);
   }
   /*
      Note that at this point, log_state != LOG_CLOSED
@@ -11823,7 +11849,8 @@ binlog_checksum_update(MYSQL_THD thd, struct st_mysql_sys_var *var,
   }
   else
   {
-    binlog_checksum_options= value;
+    my_atomic_storeul_explicit(&binlog_checksum_options, value,
+                               MY_MEMORY_ORDER_RELAXED);
   }
   DBUG_ASSERT(binlog_checksum_options == value);
   mysql_bin_log.checksum_alg_reset= BINLOG_CHECKSUM_ALG_UNDEF;

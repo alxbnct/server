@@ -5006,7 +5006,7 @@ void Create_file_log_event::pack_info(Protocol *protocol)
 
 /**
   Create_file_log_event::do_apply_event()
-  Constructor for Create_file_log_event to intantiate an event
+  Constructor for Create_file_log_event to instantiate an event
   from the relay log on the slave.
 
   @retval
