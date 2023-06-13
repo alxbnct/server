@@ -132,7 +132,7 @@ private:
         first.set_ptr(nullptr);
         return true;
       }
-      else if (!second && trait::is_equal(second, value))
+      else if (second && trait::is_equal(second, value))
       {
         second= nullptr;
         return true;

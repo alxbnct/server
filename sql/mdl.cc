@@ -2902,6 +2902,8 @@ void MDL_context::release_lock(enum_mdl_duration duration, MDL_ticket *ticket)
   DBUG_PRINT("mdl", ("Released: %s", dbug_print_mdl(ticket)));
 
   ticket_hash.erase(ticket);
+  key_type_pair ktp{ticket->get_key(), ticket->get_type()};
+  DBUG_ASSERT(ticket_hash.find(ticket->get_key(), ktp) == NULL);
 
   lock->remove_ticket(m_pins, &MDL_lock::m_granted, ticket);
 
