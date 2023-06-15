@@ -1,0 +1,82 @@
+--source include/master-slave.inc
+--source include/have_innodb.inc
+--source include/have_debug.inc
+--source include/have_binlog_format_row.inc
+ 
+--echo #
+--echo # Initialize test data
+--connection master
+create table t1 (a int) engine=innodb;
+create table t2 (a int) engine=innodb;
+insert into t1 values (1);
+--source include/save_master_gtid.inc
+ 
+--connection slave
+--source include/sync_with_master_gtid.inc
+--source include/stop_slave.inc
+--let $save_innodb_lock_wait_timeout= `SELECT @@global.innodb_lock_wait_timeout`
+--let $save_transaction_retries= `SELECT @@global.slave_transaction_retries`
+--let $save_slave_parallel_threads= `SELECT @@global.slave_parallel_threads`
+--let $save_slave_parallel_mode= `SELECT @@global.slave_parallel_mode`
+set @@global.slave_parallel_threads= 3;
+set @@global.slave_parallel_mode= CONSERVATIVE;
+set @@global.innodb_lock_wait_timeout= 2;
+set @@global.slave_transaction_retries= 0;
+BEGIN;
+SELECT * FROM t1 WHERE a=1 FOR UPDATE;
+ 
+--connection master
+SET @old_dbug= @@SESSION.debug_dbug;
+SET @@SESSION.debug_dbug="+d,binlog_force_commit_id";
+ 
+# GCO 1
+SET @commit_id= 10000;
+# T1
+update t1 set a=2 where a=1;
+# T2
+insert into t2 values (1);
+ 
+# GCO 2
+SET @commit_id= 10001;
+# T3
+insert into t1 values (3);
+
+--connection slave
+--source include/start_slave.inc
+ 
+--let $wait_condition= SELECT count(*)=1 FROM information_schema.processlist WHERE state LIKE 'Update_rows_log_event::find_row(-1)' and  command LIKE 'Slave_worker';
+--source include/wait_condition.inc
+--let $wait_condition= SELECT count(*)=1 FROM information_schema.processlist WHERE state LIKE 'Waiting for prior transaction to commit%' and  command LIKE 'Slave_worker';
+--source include/wait_condition.inc
+--let $wait_condition= SELECT count(*)=1 FROM information_schema.processlist WHERE state LIKE 'Waiting for prior transaction to start commit%' and  command LIKE 'Slave_worker';
+--source include/wait_condition.inc
+
+--let $t3_tid= `SELECT ID FROM INFORMATION_SCHEMA.PROCESSLIST WHERE STATE LIKE '%Waiting for prior transaction to start commit%'`
+--replace_result $t3_tid T3_TID
+--eval kill $t3_tid
+ 
+--echo #
+--echo # Cleanup
+--connection master
+DROP TABLE t1, t2;
+--source include/save_master_gtid.inc
+ 
+--connection slave
+
+# Expect the slave to stop and master_gtid_wait() to time out; the
+# slave stopped due to error (from lock wait timeout and explicit
+# kill).
+#--source include/sync_with_master_gtid.inc
+eval SELECT master_gtid_wait('$master_pos', 5);
+SELECT @@GLOBAL.gtid_slave_pos; 
+
+# Cleanup.
+CALL mtr.add_suppression("Slave: Connection was killed");
+CALL mtr.add_suppression("Slave: Commit failed due to failure of an earlier commit on which this one depends");
+ROLLBACK;
+eval SET @@global.slave_parallel_threads= $save_slave_parallel_threads;
+eval SET @@global.slave_parallel_mode= $save_slave_parallel_mode;
+eval SET @@global.innodb_lock_wait_timeout= $save_innodb_lock_wait_timeout;
+eval SET @@global.slave_transaction_retries= $save_transaction_retries;
+--source include/start_slave.inc
+--source include/rpl_end.inc
