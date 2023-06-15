@@ -42,6 +42,7 @@ Created 11/5/1995 Heikki Tuuri
 #include "srv0start.h"
 #include "srv0srv.h"
 #include "log.h"
+#include "mariadb_stats.h"
 
 /** If there are buf_pool.curr_size per the number below pending reads, then
 read-ahead is not done: this is to prevent flooding the buffer pool with
@@ -263,6 +264,7 @@ buf_read_page_low(
 	bool			unzip)
 {
 	buf_page_t*	bpage;
+        ulonglong       mariadb_timer= 0;
 
 	if (buf_dblwr.is_inside(page_id)) {
 		space->release();
@@ -299,6 +301,10 @@ buf_read_page_low(
 	if (sync) {
 		thd_wait_begin(nullptr, THD_WAIT_DISKIO);
 	}
+        if (mariadb_stats)
+        {
+          mariadb_timer= mariadb_measure();
+        }
 
 	DBUG_LOG("ib_buf",
 		 "read page " << page_id << " zip_size=" << zip_size
@@ -323,6 +329,8 @@ buf_read_page_low(
 			fio.err = DB_PAGE_CORRUPTED;
 		}
 	}
+        if (mariadb_timer)
+          mariadb_increment_pages_read_time(mariadb_timer);
 
 	return fio.err;
 }

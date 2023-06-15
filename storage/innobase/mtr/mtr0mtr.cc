@@ -34,6 +34,7 @@ Created 11/26/1995 Heikki Tuuri
 #endif
 #include "srv0start.h"
 #include "log.h"
+#include "mariadb_stats.h"
 
 void mtr_memo_slot_t::release() const
 {
@@ -365,6 +366,7 @@ void mtr_t::commit()
       buf_pool.flush_list_requests+= modified;
       buf_pool.page_cleaner_wakeup();
       mysql_mutex_unlock(&buf_pool.flush_list_mutex);
+      mariadb_increment_pages_updated(modified);
 
       if (m_latch_ex)
       {
@@ -443,6 +445,7 @@ void mtr_t::commit()
       }
 
       buf_pool.add_flush_list_requests(modified);
+      mariadb_increment_pages_updated(modified);
       m_memo.clear();
     }
 

@@ -39,6 +39,7 @@ Created 9/17/2000 Heikki Tuuri
 
 struct row_prebuilt_t;
 class ha_innobase;
+class ha_handler_stats;
 
 /*******************************************************************//**
 Frees the blob heap in prebuilt when no longer needed. */
@@ -656,6 +657,9 @@ struct row_prebuilt_t {
 					store it here so that we can return
 					it to MySQL */
 	/*----------------------*/
+
+        /* Used to store innodb query statistics handler_stats != 0 */
+       ha_handler_stats*    handler_stats;
 
 	/** Argument of handler_rowid_filter_check(),
 	or NULL if no PRIMARY KEY filter is pushed */
