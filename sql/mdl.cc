@@ -2901,7 +2901,9 @@ void MDL_context::release_lock(enum_mdl_duration duration, MDL_ticket *ticket)
   DBUG_ASSERT(this == ticket->get_ctx());
   DBUG_PRINT("mdl", ("Released: %s", dbug_print_mdl(ticket)));
 
-  ticket_hash.erase(ticket);
+  //ticket_hash.erase(ticket);
+  bool success= ticket_hash.erase(ticket);
+      DBUG_ASSERT(success);
   key_type_pair ktp{ticket->get_key(), ticket->get_type()};
   DBUG_ASSERT(ticket_hash.find(ticket->get_key(), ktp) == NULL);
 
