@@ -992,51 +992,51 @@ char *spider_get_string_between_quote(
   bool alloc,
   SPIDER_PARAM_STRING_PARSE *param_string_parse
 ) {
-  char *start_ptr, *end_ptr, *tmp_ptr, *esc_ptr;
+  char *sq, *dq, *tmp_ptr, *esc_ptr;
   bool find_flg = FALSE;
   DBUG_ENTER("spider_get_string_between_quote");
 
-  start_ptr = strchr(ptr, '\'');
-  end_ptr = strchr(ptr, '"');
-  if (start_ptr && (!end_ptr || start_ptr < end_ptr))
+  sq = strchr(ptr, '\'');
+  dq = strchr(ptr, '"');
+  if (sq && (!dq || sq < dq))
   {
-    tmp_ptr = ++start_ptr;
+    tmp_ptr = ++sq;
     while (!find_flg)
     {
-      if (!(end_ptr = strchr(tmp_ptr, '\'')))
+      if (!(dq = strchr(tmp_ptr, '\'')))
         DBUG_RETURN(NULL);
       esc_ptr = tmp_ptr;
       while (!find_flg)
       {
         esc_ptr = strchr(esc_ptr, '\\');
-        if (!esc_ptr || esc_ptr > end_ptr)
+        if (!esc_ptr || esc_ptr > dq)
           find_flg = TRUE;
-        else if (esc_ptr == end_ptr - 1)
+        else if (esc_ptr == dq - 1)
         {
-          tmp_ptr = end_ptr + 1;
+          tmp_ptr = dq + 1;
           break;
         } else {
           esc_ptr += 2;
         }
       }
     }
-  } else if (end_ptr)
+  } else if (dq)
   {
-    start_ptr = end_ptr;
-    tmp_ptr = ++start_ptr;
+    sq = dq;
+    tmp_ptr = ++sq;
     while (!find_flg)
     {
-      if (!(end_ptr = strchr(tmp_ptr, '"')))
+      if (!(dq = strchr(tmp_ptr, '"')))
         DBUG_RETURN(NULL);
       esc_ptr = tmp_ptr;
       while (!find_flg)
       {
         esc_ptr = strchr(esc_ptr, '\\');
-        if (!esc_ptr || esc_ptr > end_ptr)
+        if (!esc_ptr || esc_ptr > dq)
           find_flg = TRUE;
-        else if (esc_ptr == end_ptr - 1)
+        else if (esc_ptr == dq - 1)
         {
-          tmp_ptr = end_ptr + 1;
+          tmp_ptr = dq + 1;
           break;
         } else {
           esc_ptr += 2;
@@ -1046,20 +1046,20 @@ char *spider_get_string_between_quote(
   } else
     DBUG_RETURN(NULL);
 
-  *end_ptr = '\0';
+  *dq = '\0';
 
   if (param_string_parse)
-    param_string_parse->set_param_value(start_ptr, start_ptr + strlen(start_ptr) + 1);
+    param_string_parse->set_param_value(sq, sq + strlen(sq) + 1);
 
   if (alloc)
   {
     DBUG_RETURN(
       spider_create_string(
-      start_ptr,
-      strlen(start_ptr))
+      sq,
+      strlen(sq))
     );
   } else {
-    DBUG_RETURN(start_ptr);
+    DBUG_RETURN(sq);
   }
 }
 
@@ -1693,7 +1693,7 @@ static int spider_set_ll_value(
 
 int st_spider_param_string_parse::print_param_error()
 {
-  if (start_title_ptr)
+  if (start_param_ptr)
   {
     /* Restore the input delimiter characters */
     restore_delims();
@@ -1703,12 +1703,12 @@ int st_spider_param_string_parse::print_param_error()
     {
     case ER_SPIDER_INVALID_UDF_PARAM_NUM:
       my_printf_error(error_num, ER_SPIDER_INVALID_UDF_PARAM_STR,
-                      MYF(0), start_title_ptr);
+                      MYF(0), start_param_ptr);
       break;
     case ER_SPIDER_INVALID_CONNECT_INFO_NUM:
     default:
       my_printf_error(error_num, ER_SPIDER_INVALID_CONNECT_INFO_STR,
-                      MYF(0), start_title_ptr);
+                      MYF(0), start_param_ptr);
     }
 
     return error_num;
@@ -1719,13 +1719,13 @@ int st_spider_param_string_parse::print_param_error()
 
 #define SPIDER_PARAM_STR_LEN(name) name ## _length
 #define SPIDER_PARAM_STR(title_name, param_name) \
-  if (!strncasecmp(tmp_ptr, title_name, title_length)) \
+  if (!strncasecmp(start_title, title_name, title_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     if (!share->param_name) \
     { \
       if ((share->param_name = spider_get_string_between_quote( \
-        start_ptr, TRUE, &connect_string_parse))) \
+        end_title, TRUE, &connect_string_parse))) \
         share->SPIDER_PARAM_STR_LEN(param_name) = strlen(share->param_name); \
       else { \
         error_num = connect_string_parse.print_param_error(); \
@@ -1740,7 +1740,7 @@ int st_spider_param_string_parse::print_param_error()
 #define SPIDER_PARAM_STR_LIST(title_name, param_name) \
   SPIDER_PARAM_STR_LIST_CHECK(title_name, param_name, FALSE)
 #define SPIDER_PARAM_STR_LIST_CHECK(title_name, param_name, already_set) \
-  if (!strncasecmp(tmp_ptr, title_name, title_length))                        \
+  if (!strncasecmp(start_title, title_name, title_length))                        \
   {                                                                           \
     DBUG_PRINT("info", ("spider " title_name " start"));                      \
     if (already_set)                                    \
@@ -1750,7 +1750,7 @@ int st_spider_param_string_parse::print_param_error()
     }                                                   \
     if (!share->param_name)                                                   \
     {                                                                         \
-      if ((tmp_ptr2= spider_get_string_between_quote(start_ptr, FALSE)))      \
+      if ((tmp_ptr2= spider_get_string_between_quote(end_title, FALSE)))      \
       {                                                                       \
         share->SPIDER_PARAM_STR_CHARLEN(param_name)= strlen(tmp_ptr2);        \
         if ((error_num= spider_create_string_list(                            \
@@ -1781,11 +1781,11 @@ int st_spider_param_string_parse::print_param_error()
     break;                                                                    \
   }
 #define SPIDER_PARAM_HINT(title_name, param_name, check_length, max_size, append_method) \
-  if (!strncasecmp(tmp_ptr, title_name, check_length)) \
+  if (!strncasecmp(start_title, title_name, check_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     DBUG_PRINT("info",("spider max_size=%d", max_size)); \
-    int hint_num = atoi(tmp_ptr + check_length); \
+    int hint_num = atoi(start_title + check_length); \
     DBUG_PRINT("info",("spider hint_num=%d", hint_num)); \
     DBUG_PRINT("info",("spider share->param_name=%p", share->param_name)); \
     if (share->param_name) \
@@ -1796,7 +1796,7 @@ int st_spider_param_string_parse::print_param_error()
         goto error; \
       } else if (share->param_name[hint_num].length() > 0) \
         break; \
-      char *hint_str = spider_get_string_between_quote(start_ptr, FALSE); \
+      char *hint_str = spider_get_string_between_quote(end_title, FALSE); \
       if ((error_num = \
         append_method(&share->param_name[hint_num], hint_str))) \
         goto error; \
@@ -1809,11 +1809,11 @@ int st_spider_param_string_parse::print_param_error()
     break; \
   }
 #define SPIDER_PARAM_NUMHINT(title_name, param_name, check_length, max_size, append_method) \
-  if (!strncasecmp(tmp_ptr, title_name, check_length)) \
+  if (!strncasecmp(start_title, title_name, check_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     DBUG_PRINT("info",("spider max_size=%d", max_size)); \
-    int hint_num = atoi(tmp_ptr + check_length); \
+    int hint_num = atoi(start_title + check_length); \
     DBUG_PRINT("info",("spider hint_num=%d", hint_num)); \
     DBUG_PRINT("info",("spider share->param_name=%p", share->param_name)); \
     if (share->param_name) \
@@ -1824,7 +1824,7 @@ int st_spider_param_string_parse::print_param_error()
         goto error; \
       } else if (share->param_name[hint_num] != -1) \
         break; \
-      char *hint_str = spider_get_string_between_quote(start_ptr, FALSE); \
+      char *hint_str = spider_get_string_between_quote(end_title, FALSE); \
       if ((error_num = \
         append_method(&share->param_name[hint_num], hint_str))) \
         goto error; \
@@ -1839,13 +1839,13 @@ int st_spider_param_string_parse::print_param_error()
 #define SPIDER_PARAM_LONG_LEN(name) name ## _length
 #define SPIDER_PARAM_LONG_LIST_WITH_MAX(title_name, param_name, \
   min_val, max_val) \
-  if (!strncasecmp(tmp_ptr, title_name, title_length)) \
+  if (!strncasecmp(start_title, title_name, title_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     if (!share->param_name) \
     { \
       if ((tmp_ptr2 = spider_get_string_between_quote( \
-        start_ptr, FALSE))) \
+        end_title, FALSE))) \
       { \
         if ((error_num = spider_create_long_list( \
           &share->param_name, \
@@ -1865,13 +1865,13 @@ int st_spider_param_string_parse::print_param_error()
 #define SPIDER_PARAM_LONGLONG_LEN(name) name ## _length
 #define SPIDER_PARAM_LONGLONG_LIST_WITH_MAX(title_name, param_name, \
   min_val, max_val) \
-  if (!strncasecmp(tmp_ptr, title_name, title_length)) \
+  if (!strncasecmp(start_title, title_name, title_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     if (!share->param_name) \
     { \
       if ((tmp_ptr2 = spider_get_string_between_quote( \
-        start_ptr, FALSE))) \
+        end_title, FALSE))) \
       { \
         if ((error_num = spider_create_longlong_list( \
           &share->param_name, \
@@ -1889,13 +1889,13 @@ int st_spider_param_string_parse::print_param_error()
     break; \
   }
 #define SPIDER_PARAM_INT_WITH_MAX(title_name, param_name, min_val, max_val) \
-  if (!strncasecmp(tmp_ptr, title_name, title_length)) \
+  if (!strncasecmp(start_title, title_name, title_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     if (share->param_name == -1) \
     { \
       if ((tmp_ptr2 = spider_get_string_between_quote( \
-        start_ptr, FALSE))) \
+        end_title, FALSE))) \
       { \
         share->param_name = atoi(tmp_ptr2); \
         if (share->param_name < min_val) \
@@ -1914,13 +1914,13 @@ int st_spider_param_string_parse::print_param_error()
     break; \
   }
 #define SPIDER_PARAM_INT(title_name, param_name, min_val) \
-  if (!strncasecmp(tmp_ptr, title_name, title_length)) \
+  if (!strncasecmp(start_title, title_name, title_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     if (share->param_name == -1) \
     { \
       if ((tmp_ptr2 = spider_get_string_between_quote( \
-        start_ptr, FALSE))) \
+        end_title, FALSE))) \
       { \
         share->param_name = atoi(tmp_ptr2); \
         if (share->param_name < min_val) \
@@ -1937,13 +1937,13 @@ int st_spider_param_string_parse::print_param_error()
     break; \
   }
 #define SPIDER_PARAM_DOUBLE(title_name, param_name, min_val) \
-  if (!strncasecmp(tmp_ptr, title_name, title_length)) \
+  if (!strncasecmp(start_title, title_name, title_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     if (share->param_name == -1) \
     { \
       if ((tmp_ptr2 = spider_get_string_between_quote( \
-        start_ptr, FALSE))) \
+        end_title, FALSE))) \
       { \
         share->param_name = my_atof(tmp_ptr2); \
         if (share->param_name < min_val) \
@@ -1960,13 +1960,13 @@ int st_spider_param_string_parse::print_param_error()
     break; \
   }
 #define SPIDER_PARAM_LONGLONG(title_name, param_name, min_val) \
-  if (!strncasecmp(tmp_ptr, title_name, title_length)) \
+  if (!strncasecmp(start_title, title_name, title_length)) \
   { \
     DBUG_PRINT("info",("spider " title_name " start")); \
     if (share->param_name == -1) \
     { \
       if ((tmp_ptr2 = spider_get_string_between_quote( \
-        start_ptr, FALSE))) \
+        end_title, FALSE))) \
       { \
         share->param_name = my_strtoll10(tmp_ptr2, (char**) NULL, &error_num); \
         if (share->param_name < min_val) \
@@ -1983,7 +1983,7 @@ int st_spider_param_string_parse::print_param_error()
     break; \
   }
 #define SPIDER_PARAM_DEPRECATED_WARNING(title_name)                           \
-  if (!strncasecmp(tmp_ptr, title_name, title_length) && create_table)        \
+  if (!strncasecmp(start_title, title_name, title_length) && create_table)        \
   {                                                                           \
     THD *thd= current_thd;                                                    \
     push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,                  \
@@ -2011,48 +2011,8 @@ int st_spider_param_string_parse::print_param_error()
       goto error;                                                             \
   }
 
-/*
-  Parse connection information specified by COMMENT, CONNECT, or engine-defined
-  options.
-
-  TODO: Deprecate the connection specification by COMMENT and CONNECT,
-  and then solely utilize engine-defined options.
-*/
-int spider_parse_connect_info(
-  SPIDER_SHARE *share,
-  TABLE_SHARE *table_share,
-  partition_info *part_info,
-  uint create_table
-) {
-  int error_num = 0;
-  char *connect_string = NULL;
-  char *sprit_ptr;
-  char *tmp_ptr, *tmp_ptr2, *start_ptr;
-  int roop_count;
-  int title_length;
-  SPIDER_PARAM_STRING_PARSE connect_string_parse;
-  SPIDER_ALTER_TABLE *share_alter;
-  ha_table_option_struct *option_struct;
-  partition_element *part_elem;
-  partition_element *sub_elem;
-  DBUG_ENTER("spider_parse_connect_info");
-  DBUG_PRINT("info",("spider partition_info=%s",
-    table_share->partition_info_str));
-  DBUG_PRINT("info",("spider part_info=%p", part_info));
-  DBUG_PRINT("info",("spider s->db=%s", table_share->db.str));
-  DBUG_PRINT("info",("spider s->table_name=%s", table_share->table_name.str));
-  DBUG_PRINT("info",("spider s->path=%s", table_share->path.str));
-  DBUG_PRINT("info",
-    ("spider s->normalized_path=%s", table_share->normalized_path.str));
-  spider_get_partition_info(share->table_name, share->table_name_length,
-    table_share, part_info, &part_elem, &sub_elem);
-  if (part_info)
-    if (part_info->is_sub_partitioned())
-      option_struct= sub_elem->option_struct;
-    else
-      option_struct= part_elem->option_struct;
-  else
-    option_struct= table_share->option_struct;
+static void spider_minus_1(SPIDER_SHARE *share, TABLE_SHARE *table_share)
+{
   share->sts_bg_mode = -1;
   share->sts_interval = -1;
   share->sts_mode = -1;
@@ -2123,11 +2083,129 @@ int spider_parse_connect_info(
   share->delete_all_rows_type = -1;
   share->static_records_for_status = -1;
   share->static_mean_rec_length = -1;
-  for (roop_count = 0; roop_count < (int) table_share->keys; roop_count++)
+  for (uint i = 0; i < table_share->keys; i++)
   {
-    share->static_key_cardinality[roop_count] = -1;
+    share->static_key_cardinality[i] = -1;
   }
+}
 
+/**
+  Get the connect info of a certain type.
+
+  type: 4 - partition; 3 - subpartition; 2 - comment; 1 - connect_string
+  retval: 0 success; 1 not applicable; ha_err_out_of_mem fail
+*/
+static int spider_get_connect_info(const int type,
+                                   const partition_element *part_elem,
+                                   const partition_element *sub_elem,
+                                   const TABLE_SHARE* table_share,
+                                   char*& out)
+{
+  switch (type)
+  {
+  case 4:
+    if (!sub_elem || !sub_elem->part_comment)
+      return 1;
+    if (!(out = spider_create_string(
+            sub_elem->part_comment, strlen(sub_elem->part_comment))))
+      return HA_ERR_OUT_OF_MEM;
+    break;
+  case 3:
+    if (!part_elem || !part_elem->part_comment)
+      return 1;
+    if (!(out = spider_create_string(
+            part_elem->part_comment, strlen(part_elem->part_comment))))
+      return HA_ERR_OUT_OF_MEM;
+    break;
+  case 2:
+    if (table_share->comment.length == 0)
+      return 1;
+    if (!(out = spider_create_string(
+            table_share->comment.str, table_share->comment.length)))
+      return HA_ERR_OUT_OF_MEM;
+    break;
+  default:
+    if (table_share->connect_string.length == 0)
+      return 1;
+    DBUG_PRINT("info",("spider create out string"));
+    if (!(out = spider_create_string(
+          table_share->connect_string.str, table_share->connect_string.length)))
+      return HA_ERR_OUT_OF_MEM;
+    break;
+  }
+  return 0;
+}
+
+/**
+  Find the beginning and end of a parameter title.
+
+  Skip over whitespace to find the beginning of the parameter
+  title. Then skip over non-whitespace/quote/nul chars to find the end
+  of the parameter title.
+*/
+static int spider_parse_find_title(char*& start_title, char*& end_title)
+{
+  /* Skip leading whitespaces. */
+  while (*start_title == ' ' || *start_title == '\r' ||
+         *start_title == '\n' || *start_title == '\t')
+    start_title++;
+
+  if (*start_title == '\0')
+    return 1;
+
+  end_title = start_title;
+  /* Move over non-whitespace/quote/nul chars (parameter title). */
+  while (*end_title != ' ' && *end_title != '\'' &&
+         *end_title != '"' && *end_title != '\0' &&
+         *end_title != '\r' && *end_title != '\n' &&
+         *end_title != '\t')
+    end_title++;
+  return 0;
+}
+
+/*
+  Parse connection information specified by COMMENT, CONNECT, or engine-defined
+  options.
+
+  TODO: Deprecate the connection specification by COMMENT and CONNECT,
+  and then solely utilize engine-defined options.
+*/
+int spider_parse_connect_info(
+  SPIDER_SHARE *share,
+  TABLE_SHARE *table_share,
+  partition_info *part_info,
+  uint create_table
+) {
+  int error_num = 0;
+  char *connect_string = NULL;
+  char *start_param;
+  char *start_title, *tmp_ptr2, *end_title;
+  int roop_count;
+  int title_length;
+  SPIDER_PARAM_STRING_PARSE connect_string_parse;
+  SPIDER_ALTER_TABLE *share_alter;
+  ha_table_option_struct *option_struct;
+  partition_element *part_elem;
+  partition_element *sub_elem;
+  DBUG_ENTER("spider_parse_connect_info");
+  DBUG_PRINT("info",("spider partition_info=%s",
+    table_share->partition_info_str));
+  DBUG_PRINT("info",("spider part_info=%p", part_info));
+  DBUG_PRINT("info",("spider s->db=%s", table_share->db.str));
+  DBUG_PRINT("info",("spider s->table_name=%s", table_share->table_name.str));
+  DBUG_PRINT("info",("spider s->path=%s", table_share->path.str));
+  DBUG_PRINT("info",
+    ("spider s->normalized_path=%s", table_share->normalized_path.str));
+  spider_get_partition_info(share->table_name, share->table_name_length,
+    table_share, part_info, &part_elem, &sub_elem);
+  if (part_info)
+    if (part_info->is_sub_partitioned())
+      option_struct= sub_elem->option_struct;
+    else
+      option_struct= part_elem->option_struct;
+  else
+    option_struct= table_share->option_struct;
+  spider_minus_1(share, table_share);
   for (roop_count = 4; roop_count > 0; roop_count--)
   {
     if (connect_string)
@@ -2135,96 +2213,28 @@ int spider_parse_connect_info(
       spider_free(spider_current_trx, connect_string, MYF(0));
       connect_string = NULL;
     }
-    switch (roop_count)
-    {
-      case 4:
-        if (!sub_elem || !sub_elem->part_comment)
-          continue;
-        DBUG_PRINT("info",("spider create sub comment string"));
-        if (
-          !(connect_string = spider_create_string(
-            sub_elem->part_comment,
-            strlen(sub_elem->part_comment)))
-        ) {
-          error_num = HA_ERR_OUT_OF_MEM;
-          goto error_alloc_conn_string;
-        }
-        DBUG_PRINT("info",("spider sub comment string=%s", connect_string));
-        break;
-      case 3:
-        if (!part_elem || !part_elem->part_comment)
-          continue;
-        DBUG_PRINT("info",("spider create part comment string"));
-        if (
-          !(connect_string = spider_create_string(
-            part_elem->part_comment,
-            strlen(part_elem->part_comment)))
-        ) {
-          error_num = HA_ERR_OUT_OF_MEM;
-          goto error_alloc_conn_string;
-        }
-        DBUG_PRINT("info",("spider part comment string=%s", connect_string));
-        break;
-      case 2:
-        if (table_share->comment.length == 0)
-          continue;
-        DBUG_PRINT("info",("spider create comment string"));
-        if (
-          !(connect_string = spider_create_string(
-            table_share->comment.str,
-            table_share->comment.length))
-        ) {
-          error_num = HA_ERR_OUT_OF_MEM;
-          goto error_alloc_conn_string;
-        }
-        DBUG_PRINT("info",("spider comment string=%s", connect_string));
-        break;
-      default:
-        if (table_share->connect_string.length == 0)
-          continue;
-        DBUG_PRINT("info",("spider create connect_string string"));
-        if (
-          !(connect_string = spider_create_string(
-            table_share->connect_string.str,
-            table_share->connect_string.length))
-        ) {
-          error_num = HA_ERR_OUT_OF_MEM;
-          goto error_alloc_conn_string;
-        }
-        DBUG_PRINT("info",("spider connect_string=%s", connect_string));
-        break;
-    }
 
-    sprit_ptr = connect_string;
+    int error_num_1 = spider_get_connect_info(roop_count, part_elem, sub_elem,
+                                              table_share, connect_string);
+    if (error_num_1 == 1)
+      continue;
+    if (error_num_1 == HA_ERR_OUT_OF_MEM)
+      goto error_alloc_conn_string;
+    DBUG_ASSERT(error_num_1 == 0);
+
+    start_param = connect_string;
     connect_string_parse.init(connect_string, ER_SPIDER_INVALID_CONNECT_INFO_NUM);
-    while (sprit_ptr)
+    while (start_param)
     {
-      tmp_ptr = sprit_ptr;
-      while (*tmp_ptr == ' ' || *tmp_ptr == '\r' ||
-        *tmp_ptr == '\n' || *tmp_ptr == '\t')
-        tmp_ptr++;
-
-      if (*tmp_ptr == '\0')
+      start_title = start_param;
+      if (spider_parse_find_title(start_title, end_title))
         break;
-
-      title_length = 0;
-      start_ptr = tmp_ptr;
-      while (*start_ptr != ' ' && *start_ptr != '\'' &&
-        *start_ptr != '"' && *start_ptr != '\0' &&
-        *start_ptr != '\r' && *start_ptr != '\n' &&
-        *start_ptr != '\t')
-      {
-        title_length++;
-        start_ptr++;
-      }
-      connect_string_parse.set_param_title(tmp_ptr, tmp_ptr + title_length);
+      connect_string_parse.set_param_title(start_title, end_title);
       if ((error_num = connect_string_parse.get_next_parameter_head(
-        start_ptr, &sprit_ptr)))
-      {
+             end_title, &start_param)))
         goto error;
-      }
 
-      switch (title_length)
+      switch (title_length = end_title - start_title)
       {
         case 0:
           error_num = connect_string_parse.print_param_error();

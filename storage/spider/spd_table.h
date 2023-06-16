@@ -30,21 +30,13 @@
 
 typedef struct st_spider_param_string_parse
 {
-  char *start_ptr;         /* Pointer to the start of the parameter string */
   char *end_ptr;           /* Pointer to the end   of the parameter string */
-  char *start_title_ptr;   /* Pointer to the start of the current parameter
-                              title */
-  char *end_title_ptr;     /* Pointer to the end   of the current parameter
-                              title */
-  char *start_value_ptr;   /* Pointer to the start of the current parameter
-                              value */
-  char *end_value_ptr;     /* Pointer to the end   of the current parameter
-                              value */
+  char *start_param_ptr;   /* Pointer to the start of the current parameter
+                              definition */
+  char *end_param_ptr;     /* Pointer to the end   of the current parameter
+                              definition */
   int  error_num;          /* Error code of the error message to print when
                               an error is detected */
-  uint delim_title_len;    /* Length of the paramater title's delimiter */
-  uint delim_value_len;    /* Length of the paramater value's delimiter */
-  char delim_title;        /* Current parameter title's delimiter character */
   char delim_value;        /* Current parameter value's delimiter character */
 
   /**
@@ -57,24 +49,12 @@ typedef struct st_spider_param_string_parse
 
   inline void init(char *param_string, int error_code)
   {
-    start_ptr = param_string;
-    end_ptr = start_ptr + strlen(start_ptr);
+    end_ptr = param_string + strlen(param_string);
 
-    init_param_title();
+    start_param_ptr = NULL;
     init_param_value();
 
     error_num = error_code;
-  }
-
-  /**
-    Initialize the current parameter title.
-  */
-
-  inline void init_param_title()
-  {
-    start_title_ptr = end_title_ptr = NULL;
-    delim_title_len = 0;
-    delim_title = '\0';
   }
 
   /**
@@ -87,22 +67,9 @@ typedef struct st_spider_param_string_parse
     @param  end_value         Pointer to the end   position of the current
                               parameter title.
   */
-
   inline void set_param_title(char *start_title, char *end_title)
   {
-    start_title_ptr = start_title;
-    end_title_ptr = end_title;
-
-    if (*start_title == '"' ||
-        *start_title == '\'')
-    {
-      delim_title = *start_title;
-
-      if (start_title >= start_ptr && *--start_title == '\\')
-        delim_title_len = 2;
-      else
-        delim_title_len = 1;
-    }
+    start_param_ptr = start_title;
   }
 
   /**
@@ -111,14 +78,13 @@ typedef struct st_spider_param_string_parse
 
   inline void init_param_value()
   {
-    start_value_ptr = end_value_ptr = NULL;
-    delim_value_len = 0;
+    end_param_ptr = NULL;
     delim_value = '\0';
   }
 
   /**
-    Save pointers to the start and end positions of the current parameter
-    value in the parameter string.  Also save the parameter value's
+    Save pointers to the end positions of the current parameter value
+    in the parameter string.  Also save the parameter value's
     delimiter character.
 
     @param  start_value       Pointer to the start position of the current
@@ -129,19 +95,13 @@ typedef struct st_spider_param_string_parse
 
   inline void set_param_value(char *start_value, char *end_value)
   {
-    start_value_ptr = start_value--;
-    end_value_ptr = end_value;
+    DBUG_ENTER("set_param_value");
+    start_value--;
+    end_param_ptr = end_value;
 
-    if (*start_value == '"' ||
-        *start_value == '\'')
-    {
+    if (*start_value == '"' || *start_value == '\'')
       delim_value = *start_value;
-
-      if (*--start_value == '\\')
-        delim_value_len = 2;
-      else
-        delim_value_len = 1;
-    }
+    DBUG_VOID_RETURN;
   }
 
   /**
@@ -160,17 +120,17 @@ typedef struct st_spider_param_string_parse
     int error_num = 0;
     DBUG_ENTER("has_extra_parameter_values");
 
-    if (end_value_ptr)
+    if (end_param_ptr)
     {
       /* There is a current parameter value */
-      char *end_param_ptr =  end_value_ptr;
+      char *search_ptr =  end_param_ptr;
 
-      while (end_param_ptr < end_ptr &&
-        (*end_param_ptr == ' ' || *end_param_ptr == '\r' ||
-         *end_param_ptr == '\n' || *end_param_ptr == '\t'))
-        end_param_ptr++;
+      while (search_ptr < end_ptr &&
+        (*search_ptr == ' ' || *search_ptr == '\r' ||
+         *search_ptr == '\n' || *search_ptr == '\t'))
+        search_ptr++;
 
-      if (end_param_ptr < end_ptr && *end_param_ptr != '\0')
+      if (search_ptr < end_ptr && *search_ptr != '\0')
       {
         /* Extra values in parameter definition */
         error_num = print_param_error();
@@ -180,90 +140,59 @@ typedef struct st_spider_param_string_parse
     DBUG_RETURN(error_num);
   }
 
-  inline int get_next_parameter_head(char *st, char **nx)
-  {
-    DBUG_ENTER("get_next_parameter_head");
-    char *sq = strchr(st, '\'');
-    char *dq = strchr(st, '"');
-    if (!sq && !dq)
-    {
-      DBUG_RETURN(print_param_error());
-    }
+  /**
+    Find the beginning of the next parameter definition in the comment.
 
-    if (dq && (!sq || sq > dq))
+    @param end_title               Pointer to the end of the current parameter
+                                   title
+    @param next_param_head   out   Pointer to the beginning of the next
+                                   parameter definition
+  */
+  inline int get_next_parameter_head(char *end_title, char **next_param_head)
+  {
+    /* Find the beginning of the current parameter value */
+    char *sq = strchr(end_title, '\'');
+    char *dq = strchr(end_title, '"');
+    char *search = sq == nullptr ? dq : dq == nullptr ? sq : dq < sq ? dq : sq;
+    DBUG_ENTER("get_next_parameter_head");
+    /* Fail if beginning of the current parameter value is not found */
+    if (!search)
+      DBUG_RETURN(print_param_error());
+    char delim = *search;
+    /* Move to the end delimiter of the current parameter value */
+    while (1)
     {
-      while (1)
-      {
-        ++dq;
-        if (*dq == '\\')
-        {
-          ++dq;
-        }
-        else if (*dq == '"')
-        {
-          break;
-        }
-        else if (*dq == '\0')
-        {
-          DBUG_RETURN(print_param_error());
-        }
-      }
-      while (1)
-      {
-        ++dq;
-        if (*dq == '\0')
-        {
-          *nx = dq;
-          break;
-        }
-        else if (*dq == ',')
-        {
-          *dq = '\0';
-          *nx = dq + 1;
-          break;
-        }
-        else if (*dq != ' ' && *dq != '\r' && *dq != '\n' && *dq != '\t')
-        {
-          DBUG_RETURN(print_param_error());
-        }
-      }
+      ++search;
+      /* In case of an escaped quote that is part of the value string */
+      if (*search == '\\')
+        ++search;
+      else if (*search == delim)
+        break;
+      /* Missing the end delimiter */
+      else if (*search == '\0')
+        DBUG_RETURN(print_param_error());
     }
-    else /* sq && (!dq || sq <= dq) */
+    /* Move to the beginning of the next parameter definition */
+    while (1)
     {
-      while (1)
+      ++search;
+      /* In case there's no next parameter definition */
+      if (*search == '\0')
       {
-        ++sq;
-        if (*sq == '\\')
-        {
-          ++sq;
-        }
-        else if (*sq == '\'')
-        {
-          break;
-        }
-        else if (*sq == '\0')
-        {
-          DBUG_RETURN(print_param_error());
-        }
+        *next_param_head = search;
+        break;
       }
-      while (1)
+      /* Beginning of next parameter definition found, null the comma */
+      else if (*search == ',')
       {
-        ++sq;
-        if (*sq == '\0')
-        {
-          *nx = sq;
-          break;
-        }
-        else if (*sq == ',')
-        {
-          *sq = '\0';
-          *nx = sq + 1;
-          break;
-        }
-        else if (*sq != ' ' && *sq != '\r' && *sq != '\n' && *sq != '\t')
-        {
-          DBUG_RETURN(print_param_error());
-        }
+        *search = '\0';
+        *next_param_head = search + 1;
+        break;
+      }
+      /* Fail if encountering an invalid char */
+      else if (*search != ' ' && *search != '\r' && *search != '\n' && *search != '\t')
+      {
+        DBUG_RETURN(print_param_error());
       }
     }
     DBUG_RETURN(0);
@@ -276,24 +205,9 @@ typedef struct st_spider_param_string_parse
 
   inline void restore_delims()
   {
-    char *end = end_title_ptr - 1;
-
-    switch (delim_title_len)
+    if (end_param_ptr)
     {
-    case 2:
-      *end++ = '\\';
-      /* Fall through */
-    case 1:
-      *end = delim_title;
-    }
-
-    end = end_value_ptr - 1;
-    switch (delim_value_len)
-    {
-    case 2:
-      *end++ = '\\';
-      /* Fall through */
-    case 1:
+      char *end = end_param_ptr - 1;
       *end = delim_value;
     }
   }
