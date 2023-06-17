@@ -199,6 +199,12 @@ finish_event_group(rpl_parallel_thread *rpt, uint64 sub_id,
     Thus this final wait is done with kill ignored during the wait. This is
     fine, at this point there is no active query or transaction to abort, and
     the thread will continue as soon as earlier event groups complete.
+
+    Note though, that in the non-error case there is no guarantee that
+    finish_event_group() will be run in-order. For example, a successful
+    binlog group commit will wakeup all participating event groups
+    simultaneously so only thread scheduling will decide the order in which
+    finish_event_group() calls acquire LOCK_parallel_entry.
   */
   err= wfc->wait_for_prior_commit(thd, false);
   if (unlikely(err) && !rgi->worker_error)
