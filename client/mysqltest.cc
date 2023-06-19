@@ -158,6 +158,7 @@ static struct property prop_list[] = {
   { &display_metadata, 0, 0, 0, "$ENABLED_METADATA" },
   { &ps_protocol_enabled, 0, 0, 0, "$ENABLED_PS_PROTOCOL" },
   { &view_protocol_enabled, 0, 0, 0, "$ENABLED_VIEW_PROTOCOL"},
+  { &cursor_protocol_enabled, 0, 0, 0, "$ENABLED_CURSOR_PROTOCOL"},
   { &service_connection_enabled, 0, 1, 0, "$ENABLED_SERVICE_CONNECTION"},
   { &disable_query_log, 0, 0, 1, "$ENABLED_QUERY_LOG" },
   { &disable_result_log, 0, 0, 1, "$ENABLED_RESULT_LOG" },
@@ -174,6 +175,7 @@ enum enum_prop {
   P_META,
   P_PS,
   P_VIEW,
+  P_CURSOR,
   P_CONN,
   P_QUERY,
   P_RESULT,
@@ -265,6 +267,7 @@ static size_t suite_dir_len, overlay_dir_len;
 static regex_t ps_re;     /* the query can be run using PS protocol */
 static regex_t sp_re;     /* the query can be run as a SP */
 static regex_t view_re;   /* the query can be run as a view*/
+static regex_t cursor_re;    /* the query can be run with cursor protocol*/
 
 static void init_re(void);
 static int match_re(regex_t *, char *);
@@ -382,6 +385,7 @@ enum enum_commands {
   Q_START_TIMER, Q_END_TIMER,
   Q_CHARACTER_SET, Q_DISABLE_PS_PROTOCOL, Q_ENABLE_PS_PROTOCOL,
   Q_DISABLE_VIEW_PROTOCOL, Q_ENABLE_VIEW_PROTOCOL,
+  Q_DISABLE_CURSOR_PROTOCOL, Q_ENABLE_CURSOR_PROTOCOL,
   Q_DISABLE_SERVICE_CONNECTION, Q_ENABLE_SERVICE_CONNECTION,
   Q_ENABLE_NON_BLOCKING_API, Q_DISABLE_NON_BLOCKING_API,
   Q_DISABLE_RECONNECT, Q_ENABLE_RECONNECT,
@@ -476,6 +480,8 @@ const char *command_names[]=
   "enable_ps_protocol",
   "disable_view_protocol",
   "enable_view_protocol",
+  "disable_cursor_protocol",
+  "enable_cursor_protocol",
   "disable_service_connection",
   "enable_service_connection",
   "enable_non_blocking_api",
@@ -8337,13 +8343,20 @@ void run_query_stmt(struct st_connection *cn, struct st_command *command,
 #if MYSQL_VERSION_ID >= 50000
   if (cursor_protocol_enabled)
   {
-    /*
-      Use cursor when retrieving result
-    */
-    ulong type= CURSOR_TYPE_READ_ONLY;
-    if (mysql_stmt_attr_set(stmt, STMT_ATTR_CURSOR_TYPE, (void*) &type))
-      die("mysql_stmt_attr_set(STMT_ATTR_CURSOR_TYPE) failed': %d %s",
-          mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
+      /*
+          Use cursor for queries matching the filter,
+          else reset cursor type
+      */
+      if (match_re(&cursor_re, query))
+      {
+        /*
+          Use cursor when retrieving result
+        */
+        ulong type= CURSOR_TYPE_READ_ONLY;
+        if (mysql_stmt_attr_set(stmt, STMT_ATTR_CURSOR_TYPE, (void*) &type))
+          die("mysql_stmt_attr_set(STMT_ATTR_CURSOR_TYPE) failed': %d %s",
+              mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
+      }
   }
 #endif
 
@@ -8482,6 +8495,17 @@ end:
   */
 
   var_set_errno(mysql_stmt_errno(stmt));
+
+#if MYSQL_VERSION_ID >= 50000
+  if (cursor_protocol_enabled)
+  {
+
+    ulong type= CURSOR_TYPE_NO_CURSOR;
+    if (mysql_stmt_attr_set(stmt, STMT_ATTR_CURSOR_TYPE, (void*) &type))
+      die("mysql_stmt_attr_set(STMT_ATTR_CURSOR_TYPE) failed': %d %s",
+          mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
+  }
+#endif
 
   revert_properties();
 
@@ -9312,9 +9336,18 @@ void init_re(void)
     "^("
     "[[:space:]]*SELECT[[:space:]])";
 
+  /*
+    Filter for queries that can be run with
+    cursor protocol
+  */
+  const char *cursor_re_str =
+    "^("
+    "[[:space:]]*SELECT[[:space:]])";
+
   init_re_comp(&ps_re, ps_re_str);
   init_re_comp(&sp_re, sp_re_str);
   init_re_comp(&view_re, view_re_str);
+  init_re_comp(&cursor_re, cursor_re_str);
 }
 
 
@@ -9351,6 +9384,7 @@ void free_re(void)
   regfree(&ps_re);
   regfree(&sp_re);
   regfree(&view_re);
+  regfree(&cursor_re);
 }
 
 /****************************************************************************/
@@ -10134,6 +10168,12 @@ int main(int argc, char **argv)
         break;
       case Q_ENABLE_VIEW_PROTOCOL:
         set_property(command, P_VIEW, view_protocol);
+        break;
+      case Q_DISABLE_CURSOR_PROTOCOL:
+        set_property(command, P_CURSOR, 0);
+        break;
+      case Q_ENABLE_CURSOR_PROTOCOL:
+        set_property(command, P_CURSOR, cursor_protocol);
         break;
       case Q_DISABLE_SERVICE_CONNECTION:
         set_property(command, P_CONN, 0);
