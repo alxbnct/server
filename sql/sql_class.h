@@ -6419,7 +6419,8 @@ public:
                                    bool bit_fields_as_long,
                                    bool create_table,
                                    bool keep_row_order,
-                                   uint hidden);
+                                   uint hidden,
+                                   bool set_all_bits_of_read_set_to_1= true);
   TMP_TABLE_PARAM *get_tmp_table_param() { return &tmp_table_param; }
   void init()
   {
@@ -6607,7 +6608,8 @@ class select_union_recursive :public select_unit
                            bool bit_fields_as_long,
                            bool create_table,
                            bool keep_row_order,
-                           uint hidden);
+                           uint hidden,
+                           bool set_all_bits_of_read_set_to_1= true);
   void cleanup();
 };
 
@@ -6774,7 +6776,8 @@ public:
                            bool bit_fields_as_long,
                            bool create_table,
                            bool keep_row_order,
-                           uint hidden);
+                           uint hidden,
+                           bool set_all_bits_of_read_set_to_1= true);
   bool init_result_table(ulonglong select_options);
   int send_data(List<Item> &items);
   void cleanup();
@@ -8004,7 +8007,8 @@ public:
 extern THD_list server_threads;
 
 void setup_tmp_table_column_bitmaps(TABLE *table, uchar *bitmaps,
-                                    uint field_count);
+                                    uint field_count,
+                                    bool set_all_bits_of_read_set_to_1);
 #ifdef WITH_WSREP
 extern void wsrep_to_isolation_end(THD*);
 #endif
