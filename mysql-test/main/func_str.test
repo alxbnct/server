@@ -2455,6 +2455,7 @@ select aes_decrypt(x'9E6F76516B4DE68FED7A77632FC0913D', 'bar', '0000000011111111
 select aes_decrypt(x'9E6F76516B4DE68FED7A77632FC0913D', 'bar', 'abcdefghabcdefgh', 'aes-128-ecb') `expected NULL`;
 # but ctr doesn't use padding, so:
 select hex(aes_decrypt(x'9E6F76516B4DE68FED7A77632FC0913D', 'bar', 'abcdefghabcdefgh', 'aes-128-ctr')) `expected garbage`;
+set @@block_encryption_mode=default;
 
 --echo #
 --echo # End of 11.2 tests

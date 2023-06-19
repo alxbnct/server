@@ -1,0 +1,37 @@
+--- main/func_kdf.result
++++ main/func_kdf.reject
+@@ -21,10 +21,10 @@
+ 48565B49B42FBF88537AFA1D4C0FA2C6
+ select hex(kdf('foo', 'bar', 'info', 'hkdf'));
+ hex(kdf('foo', 'bar', 'info', 'hkdf'))
+-710583081D40A55F0B573A76E02D8975
++NULL
+ select hex(kdf('foo', 'bar', 'infa', 'hkdf'));
+ hex(kdf('foo', 'bar', 'infa', 'hkdf'))
+-612875F859CFB4EE0DFEFF9F2A18E836
++NULL
+ select hex(kdf('foo', 'bar', 'info', 'pbkdf2_hmac'));
+ hex(kdf('foo', 'bar', 'info', 'pbkdf2_hmac'))
+ DB658012DC3E52AEC1F4933C280B6E10
+@@ -44,7 +44,7 @@
+ NULL
+ select hex(kdf('foo', 'bar', NULL, 'hkdf'));
+ hex(kdf('foo', 'bar', NULL, 'hkdf'))
+-4AFD0088E56CAF7CB5C94F6C101D58D5
++NULL
+ select hex(kdf('foo', 'bar', NULL, 'pbkdf2_hmac'));
+ hex(kdf('foo', 'bar', NULL, 'pbkdf2_hmac'))
+ DB658012DC3E52AEC1F4933C280B6E10
+@@ -66,10 +66,10 @@
+ set @@block_encryption_mode='aes-192-cbc';
+ select hex(kdf('foo', 'bar', 'info', 'hkdf'));
+ hex(kdf('foo', 'bar', 'info', 'hkdf'))
+-710583081D40A55F0B573A76E02D8975AA11A4595954C0A1
++NULL
+ select hex(kdf('foo', 'bar', 'info', 'hkdf', 256));
+ hex(kdf('foo', 'bar', 'info', 'hkdf', 256))
+-710583081D40A55F0B573A76E02D8975AA11A4595954C0A1487D6D33ABAB93C3
++NULL
+ select hex(kdf('foo', 'bar', 2000, 'pbkdf2_hmac'));
+ hex(kdf('foo', 'bar', 2000, 'pbkdf2_hmac'))
+ 430D4780B57254EF39EE13CE53DB381A552151AA62A9FA92
