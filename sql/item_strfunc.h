@@ -521,6 +521,7 @@ class Item_func_ucase :public Item_str_conv
 {
 public:
   Item_func_ucase(THD *thd, Item *item): Item_str_conv(thd, item) {}
+  enum Functype functype() const override { return  UCASE_FUNC; }
   LEX_CSTRING func_name_cstring() const override
   {
     static LEX_CSTRING name= {STRING_WITH_LEN("ucase") };
