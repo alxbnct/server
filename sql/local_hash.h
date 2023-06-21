@@ -100,8 +100,7 @@ private:
       for (uint j= (i + 1) & capacity; hash_array[j] != nullptr; j= (j + 1) & capacity)
       {
         auto key= get_key(hash_array[j])->tc_hash_value() & capacity;
-        //TODO
-        if ((key <= i && key <= j) || (key > j && i < j))
+        if (key <= i || key > j)
         {
           hash_array[i]= hash_array[j];
           i= j;
@@ -164,7 +163,7 @@ private:
     hash_array= new T[capacity + 1]{};
     size= 0;
 
-    for (uint i= 0; i <= past_capacity; i++)
+    for (uint i= 0; i < past_capacity; i++)
     {
       if (temp_hash_array[i])
       {
