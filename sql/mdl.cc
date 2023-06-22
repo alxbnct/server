@@ -2125,11 +2125,6 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
                                    )))
     return TRUE;
 
-  //insert ticket to hash
-  //t_hash.insert(&mdl_request->key, ticket, mdl_request->duration);
-  auto dur= mdl_request->duration;
-  ticket_hash.insert(&mdl_request->key, ticket);
-
   /* The below call implicitly locks MDL_lock::m_rwlock on success. */
   if (!(lock= mdl_locks.find_or_insert(m_pins, key)))
   {
@@ -2153,6 +2148,8 @@ MDL_context::try_acquire_lock_impl(MDL_request *mdl_request,
     lock->m_granted.add_ticket(ticket);
 
     mysql_prlock_unlock(&lock->m_rwlock);
+
+    ticket_hash.insert(&mdl_request->key, ticket); // TODO error handling
 
     m_tickets[mdl_request->duration].push_front(ticket);
 
@@ -2221,6 +2218,11 @@ MDL_context::clone_ticket(MDL_request *mdl_request)
   DBUG_ASSERT(mdl_request->ticket->has_stronger_or_equal_type(ticket->m_type));
 
   ticket->m_lock= mdl_request->ticket->m_lock;
+  if (!ticket_hash.insert(ticket->get_key(), ticket))
+  {
+    delete ticket;
+    return TRUE;
+  }
   mdl_request->ticket= ticket;
 
   mysql_prlock_wrlock(&ticket->m_lock->m_rwlock);
@@ -2474,6 +2476,8 @@ MDL_context::acquire_lock(MDL_request *mdl_request, double lock_wait_timeout)
   DBUG_ASSERT(wait_status == MDL_wait::GRANTED);
 
   m_tickets[mdl_request->duration].push_front(ticket);
+
+  ticket_hash.insert(&mdl_request->key, ticket);  // TODO error handling
 
   mdl_request->ticket= ticket;
 
