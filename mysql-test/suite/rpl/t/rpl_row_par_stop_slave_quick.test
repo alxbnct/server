@@ -144,6 +144,9 @@ set debug_sync= "now WAIT_FOR row_executed";
 --send STOP SLAVE FORCE;
 
 --connection slave
+# Wait for replica to signal worker threads to stop
+--let $wait_condition= SELECT count(*)=1 FROM information_schema.processlist WHERE state LIKE 'Waiting for worker threads to stop';
+--source include/wait_condition.inc
 set @@global.debug_dbug="";
 set debug_sync= "now SIGNAL continue_row_execution";
 
