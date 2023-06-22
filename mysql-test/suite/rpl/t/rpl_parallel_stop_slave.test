@@ -57,6 +57,8 @@ SELECT COUNT(*) FROM t1;
 # Wait until everything is queued up.
 --let $wait_condition= SELECT count(*)=1 FROM information_schema.processlist WHERE state="Updating" AND info="UPDATE t1 SET b=b+2 WHERE a=3" AND command LIKE "Slave_worker";
 --source include/wait_condition.inc
+--let $wait_condition= SELECT count(*)=2 FROM information_schema.processlist WHERE state="Waiting for prior transaction to commit" AND command LIKE "Slave_worker";
+--source include/wait_condition.inc
 
 --connection slave2
 send STOP SLAVE;
