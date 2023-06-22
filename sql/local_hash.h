@@ -26,6 +26,7 @@ public:
   using T = typename trait::elem_type;
   using find_type = typename trait::find_type;
   using erase_type= typename trait::erase_type;
+  using hash_value_type = decltype(MDL_key().tc_hash_value());
 
   MDL_key *get_key(const T &elem) { return trait::get_key(elem); }
   bool is_empty(const T &el) { return trait::is_empty(el); }
@@ -48,15 +49,20 @@ public:
   }
 
 private:
-  bool insert_helper( MDL_key* mdl_key, T value)
+  hash_value_type to_index(const hash_value_type &hash_value)
   {
-    auto key= mdl_key->tc_hash_value() & capacity;
+    return hash_value & (capacity - 1);
+  }
+
+  bool insert_helper(MDL_key* mdl_key, T value)
+  {
+    auto key= to_index(mdl_key->tc_hash_value());
 
     while (hash_array[key] != nullptr) 
     {
       if (hash_array[key] == value)
         return false;
-      key= (key + 1) & capacity;
+      key= to_index(key + 1);
     }
 
     hash_array[key]= value;
@@ -84,8 +90,8 @@ public:
        return nullptr;
      }
 
-    for (auto key= mdl_key->tc_hash_value() & capacity;
-         hash_array[key] != nullptr; key= (key + 1) & capacity) 
+    for (auto key= to_index(mdl_key->tc_hash_value());
+         hash_array[key] != nullptr; key= to_index(key + 1))
     {
       if (elem_suits(hash_array[key]))
         return hash_array[key];
@@ -97,9 +103,9 @@ public:
 private:
     uint rehash_subsequence(uint i)
     {
-      for (uint j= (i + 1) & capacity; hash_array[j] != nullptr; j= (j + 1) & capacity)
+      for (uint j= to_index(i + 1); hash_array[j] != nullptr; j= to_index(j + 1))
       {
-        auto key= get_key(hash_array[j])->tc_hash_value() & capacity;
+        auto key= to_index(get_key(hash_array[j])->tc_hash_value());
         if (key <= i || key > j)
         {
           hash_array[i]= hash_array[j];
@@ -112,8 +118,8 @@ private:
 
     bool erase_helper(const erase_type& value) 
     {
-      for (auto key= trait::get_key(value)->tc_hash_value() & capacity;
-           hash_array[key] != nullptr; key= (key + 1) & capacity)
+      for (auto key= to_index(trait::get_key(value)->tc_hash_value());
+           hash_array[key] != nullptr; key= to_index(key + 1))
       {
         if (trait::is_equal(hash_array[key], value))
         {
@@ -160,7 +166,7 @@ private:
     uint past_capacity= capacity;
     capacity= _capacity;
     auto temp_hash_array= hash_array;
-    hash_array= new T[capacity + 1]{};
+    hash_array= new T[capacity]{};
     size= 0;
 
     for (uint i= 0; i < past_capacity; i++)
@@ -184,9 +190,9 @@ private:
     hash_array= (TABLE_LIST **) calloc(capacity, sizeof(TABLE_LIST *));
     size= 0;*/
 
-    capacity= (1 << power2_start) - 1;
+    capacity= CAPACITY_INITIAL;
     size= 0;
-    hash_array= new T [capacity + 1] {};
+    hash_array= new T [capacity] {};
 
     insert_helper(get_key(_first), _first);
     insert_helper(get_key(_second), _second);
@@ -216,7 +222,7 @@ public:
     }
 
     if (size + 1 > MAX_LOAD_FACTOR * capacity)
-      rehash((capacity << 1) | 1);
+      rehash(capacity << 1);
 
     return insert_helper(mdl_key, value);
   };
@@ -238,12 +244,13 @@ public:
       hash_array[i]= nullptr;
     }
 
-    capacity= (1 << power2_start) - 1;
+    capacity= CAPACITY_INITIAL;
     return true;
   }
 
 private:
   static constexpr uint power2_start= 2;
+  static constexpr uint CAPACITY_INITIAL= 1 << power2_start;
   static constexpr double MAX_LOAD_FACTOR= 0.5f;
   static constexpr double LOW_LOAD_FACTOR= 0.1f;
 
