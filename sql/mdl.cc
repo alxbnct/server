@@ -3210,9 +3210,7 @@ void MDL_context::set_lock_duration(MDL_ticket *mdl_ticket,
 
   m_tickets[MDL_TRANSACTION].remove(mdl_ticket);
   m_tickets[duration].push_front(mdl_ticket);
-#ifndef DBUG_OFF
   mdl_ticket->m_duration= duration;
-#endif
 }
 
 
@@ -3247,12 +3245,10 @@ void MDL_context::set_explicit_duration_for_all_locks()
     }
   }
 
-#ifndef DBUG_OFF
   Ticket_iterator exp_it(m_tickets[MDL_EXPLICIT]);
 
   while ((ticket= exp_it++))
     ticket->m_duration= MDL_EXPLICIT;
-#endif
 }
 
 
@@ -3285,12 +3281,10 @@ void MDL_context::set_transaction_duration_for_all_locks()
     m_tickets[MDL_TRANSACTION].push_front(ticket);
   }
 
-#ifndef DBUG_OFF
   Ticket_iterator trans_it(m_tickets[MDL_TRANSACTION]);
 
   while ((ticket= trans_it++))
     ticket->m_duration= MDL_TRANSACTION;
-#endif
 }
 
 
